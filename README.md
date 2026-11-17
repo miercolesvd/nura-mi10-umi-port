@@ -20,6 +20,8 @@ request.
 | `pmbootstrap install` / `boot.img` | builds; header v2, gzip kernel, DTB and GPU firmware in place (checked by unpacking the image) |
 | RAM boot on the phone (`fastboot boot`) | kernel boots, USB network + debug shell work, UFS detected, panel driver sends its on-sequence, ST FTS touch probes |
 | Picture on the panel | **works**: the initramfs hook re-sends the panel on-sequence and sets brightness 1500; console + on-screen keyboard visible at boot (17 Nov 2026) |
+| 90 Hz | **works**: panel TE and frame completions measured at 90/s while scrolling (kernel patch 0006, stock 90 Hz on-sequence) |
+| Plasma Mobile on internal storage, Wi-Fi, Bluetooth | **work** (17 Nov 2026) |
 
 Target hardware variant: CSOT panel (`j2_mp_42_02_0b`, hwlevel MP,
 `oled_panel_id` 0B) with ST FTS touch. A Samsung-panel unit needs different
