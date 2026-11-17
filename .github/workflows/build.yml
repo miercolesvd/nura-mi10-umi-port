@@ -47,7 +47,9 @@ jobs:
     #   blacksmith-32vcpu-ubuntu-2404-arm   (Blacksmith, 32-core ARM)
     # Without it, builds use GitHub's free 4-core ARM runner.
     runs-on: ${{ inputs.runner || vars.RUNNER || 'ubuntu-24.04-arm' }}
-    timeout-minutes: 300
+    # Paid providers get a hard time limit so a hung build can't run up a bill
+    # (45 min on Ubicloud's 30-core ARM is at most about $0.85).
+    timeout-minutes: ${{ startsWith(inputs.runner || vars.RUNNER || 'ubuntu', 'ubuntu') && 300 || 45 }}
     env:
       DEVICE: xiaomi-umi
       UI: ${{ inputs.ui || 'console' }}
