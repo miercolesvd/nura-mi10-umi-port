@@ -1,14 +1,18 @@
 pkgname=umi-modem
 pkgver=0.1
-pkgrel=3
+pkgrel=4
 pkgdesc="Xiaomi Mi 10: boot the SDX55M modem (Sahara image server, EFS syncs kept in RAM)"
 url="https://github.com/miercolesvd/mi10-port"
 arch="aarch64"
 license="GPL-2.0-only AND BSD-3-Clause"
+depends="iproute2"
 makedepends="linux-headers qrtr-dev"
 source="
 	mi10-mdm.c
+	mi10-qmi.c
 	umi-modem-start
+	umi-modem-data
+	umi-modem-data-up
 	umi-modem.service
 	umi-modem.conf
 	umi-tqftpserv.service
@@ -39,12 +43,16 @@ prepare() {
 
 build() {
 	${CC:-gcc} $CFLAGS -Wall -Wextra -pthread -o mi10-mdm mi10-mdm.c $LDFLAGS
+	${CC:-gcc} $CFLAGS -Wall -Wextra -o mi10-qmi mi10-qmi.c $LDFLAGS
 	${CC:-gcc} $CFLAGS -Wall -o tqftpserv/tqftpserv \
 		tqftpserv/tqftpserv.c tqftpserv/translate.c $LDFLAGS -lqrtr
 }
 
 package() {
 	install -Dm755 mi10-mdm "$pkgdir"/usr/sbin/mi10-mdm
+	install -Dm755 mi10-qmi "$pkgdir"/usr/sbin/mi10-qmi
+	install -Dm755 umi-modem-data "$pkgdir"/usr/sbin/umi-modem-data
+	install -Dm755 umi-modem-data-up "$pkgdir"/usr/libexec/umi-modem/umi-modem-data-up
 	install -Dm755 umi-modem-start "$pkgdir"/usr/libexec/umi-modem/umi-modem-start
 	install -Dm644 umi-modem.service "$pkgdir"/usr/lib/systemd/system/umi-modem.service
 	install -Dm644 umi-modem.conf "$pkgdir"/usr/lib/modprobe.d/umi-modem.conf
@@ -56,17 +64,5 @@ package() {
 		"$pkgdir"/usr/share/licenses/$pkgname/tqftpserv-LICENSE
 }
 sha512sums="
-eab2a22eaa9bb2eac6756299fd678179a4f45fdc88957c1c84ca269a85764fbf8fabdf513fd4086c2539f75c55d602f7b20b5b53a779d5651e3c60e99b065878  mi10-mdm.c
-e77f44338e352f96505466077b748a9126513231d3cfa1121abe4845fc5860f073dec55cca253dc20921d57cac5d044c07dc53e61f894c6a3728faaed5e43e98  umi-modem-start
-4074edcbc2cc6de6d0ee5f23e8d48bdabe9398e32b2355386650194b1be67852e0b0ca6629f1edca9cb8b30b10b4b08e2d3702893212acf97e906944f5c1a162  umi-modem.service
-46565337b18e469148742597cdb7cbe14e26f3b981851d178498837fde4ab5076817e7546d7bf849b604047432902b73977e375f6146ea97c29fc4f4efed3067  umi-modem.conf
-08f69e7fa24b6d3cf138e7b8b5b459ea680be088da5e2077e2a6ef19032f9799e1e15a52674a17947bb3e2c8dca4d38c13ce1ea30d06add1a8c760c22b2a1513  umi-tqftpserv.service
-14906bab859fe707a71b507b3d04f364c45941d22c12ccd27cd1ea7446257d6dc15eb4e3628edd2cb85f0c11955de6da17ebefc9205f3ae5c2a9fc65e05eec48  tqftpserv-version.diff
-1fe8dc098f7ac7c4d6094302790c29d83cd75b76f4abae240b4b4ed18e72570b5817f52b7c93eec4cf76bf90d2c775618a0cb35dfaa1dfed004810bc7a0a5a45  tqftpserv-tqftpserv.c
-20f9b0f1c8792bb0db2b34c49c742268254de986de7b4ef327563f25fefe9e7113dc73d17f034b2dfb65372c00eed80c920760f2c7c831e648f669dab320faa6  tqftpserv-translate.c
-b11b25b55571b3333d64213e1cf5253beafe8e054e58e7ce9eefd5c99831aa6b8e0e3b391b97e100ac121e001c74fd334012dcd96a38e379186ce07842b673e4  tqftpserv-translate.h
-defa4e8d50e8a0399ef4755930ceafaf3d452783d64d82fb31362b6082899303ac87e69cc194d9aa78af3a7136cd32632b1a1cec283d0af2961ed5df748b1351  tqftpserv-list.h
-dbb7888349a72bb59bbf84f28c8abdc9e2c6a912c0bb7721c8575e7a22be8905fbc432825dffc1673aefcb4876cd5a3bc81b0de5ac1d40001d7f24ff481042dd  tqftpserv-xz-decompress.h
-aa8cc6a554d3c3cb47cb1f5391633b06f8c61559c4c159658fae52a673b2af42d4d8d743dcde40cc7fc696431e0441aee7e5ddd119a0aad099d2739040eef1d3  tqftpserv-zstd-decompress.h
-bb0a51da642694a66a609e3fe7940f67393ee982e3cbf9fe1eaeed301bcd5e80f33a0a32e780ecf16fa97a2c3dbf8630b8b8307ea16ee139ce591946ba635761  tqftpserv-LICENSE
+
 "

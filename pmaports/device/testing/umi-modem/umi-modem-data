@@ -1,0 +1,23 @@
+#!/bin/sh
+# Start a mobile data session and hold it (stop with Ctrl-C or SIGTERM).
+#   umi-modem-data [APN]
+# QMAP mux 1 on the modem's IP_HW0 channel (mhi_hwip0), as wwan0. Its
+# default route gets a high metric, so Wi-Fi stays preferred while testing.
+APN=$1
+PHY=mhi_hwip0
+DEV=wwan0
+MUX=1
+
+if [ ! -d /sys/class/net/$PHY ]; then
+	echo "no $PHY: is the modem up (umi-modem)?" >&2
+	exit 1
+fi
+ip link set $PHY up
+if [ ! -d /sys/class/net/$DEV ]; then
+	# downlink packets arrive several to a frame (QMAP aggregation)
+	ip link add link $PHY name $DEV type rmnet mux_id $MUX ingress-deaggregation on || exit 1
+fi
+ip link set $DEV up
+
+exec /usr/sbin/mi10-qmi -t 10000 connect -e 4 -m $MUX ${APN:+-a "$APN"} \
+	-H /usr/libexec/umi-modem/umi-modem-data-up
