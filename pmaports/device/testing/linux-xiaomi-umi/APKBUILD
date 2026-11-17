@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=6
+pkgrel=7
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -54,6 +54,7 @@ source="
 	0010-soc-qcom-pd-mapper-cpufreq-dt-platdev-match-SM8250-r.patch
 	0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
 	0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
+	0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
 "
 builddir="$srcdir/linux-$pkgver"
 
@@ -90,7 +91,7 @@ package() {
 
 sha512sums="
 9368813d7c2b17d0a893c1becd0d631dac9030a81c0505b463ad4d8c72edbdaeada53c24bc36ada0b84ff0ff78ae363bdf9aeeb8cff6a0d01bc6fc00b2fa275b  linux-6.12.94.tar.xz
-2671bbf03ade3ec16e6302aa1ae49163d5b2e4779bc2288b6f9222c250017f3996cbf060e28a1c20b079c3542e2a1e34293fe142500112696f083ce9a40b1cdc  config-xiaomi-umi.aarch64
+bb650f962d32445855b0a918148825598c1b2cbe926cde48b6b932f710d2949a986724b11ab11855f855b253f6d8ccd1c8e84da42d869083c7c527afa4ad6c3a  config-xiaomi-umi.aarch64
 243e84f335d965c79b9f8e2a549f0899c6bad06f5b1cc5bf71ce3e3fd53fdd85abc271999bcb3ee6f94fa4e47a7ab32b4649a3009df0379351b176c92d308583  0001-dmaengine-qcom-gpi-add-sm8250-EE-offset-variants.patch
 59da1b0990a55b1f38dc2f10ef793de625712b7e95c8a17239d52d8dafbf7ca0d66ba84b0716da9f14434bd81a9a14b02cfcbdf41930f0e8b632e3e52cf2e5ea  0002-drm-panel-add-Xiaomi-Mi-10-umi-DSC-command-mode-AMOL.patch
 6137d329181eeff0a04a9595ed7fcb9dfc2a072fef0c7ae8e7feb2c177a7a20bb8864c923a75d5f55b66f5a018e27daf31fd9b0827bd50a825175e247071f5b7  0003-Input-touchscreen-add-vendor-derived-ST-FTS-driver-f.patch
@@ -103,4 +104,5 @@ e7cbba31fe733cc3021d8f0dd6a15841b202fea95db2449dd93169c552b47bd5de54b388c8dad2e2
 f83a0e6267262017f89b9f41f4122dd0cae562a648450ddaa9356c06af9aa1ce8775f2a4b17c582f556580b0678ecc78c06d1511ed62d0428f7b66365afdcc06  0010-soc-qcom-pd-mapper-cpufreq-dt-platdev-match-SM8250-r.patch
 0e5e8f0a38b7dbaf3a5bc0c7d099edb8ddd27915fa46618d2801537bfb017b1cea2afa3da4df9b06ea15fc3122db2f803282d6c12f51abdbfc85597886d7f253  0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
 082cbb436257023b962eb13f35fb43fde2a01542ac7062b6be6fdfc6778d38442a493d5170f450a07e353ded299ed41e0d3c7101ccce4038c3d53316a50ccb60  0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
+5b71980228a948ddddf8c51aa2e9d43e6849cfb7ae31fd9c09a6bffe49ef9f843fd8cf3958563ea2a9e325ea6a094565ab07c4729a88e72b84fae50fd00a5078  0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
 "
