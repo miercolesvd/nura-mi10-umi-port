@@ -93,6 +93,11 @@ boot works, and after a backup.
 
 ## Known gaps and risks
 
+- The stock bootloader applies the stock `dtbo` and overwrites the device
+  tree's root `model` and `compatible` with `qcom,kona-mtp`/`qcom,kona`.
+  Anything matching the root on `qcom,sm8250` or `xiaomi,umi` misses; patch
+  0010 adds `qcom,kona` where it mattered (pd-mapper, cpufreq-dt blocklist).
+
 - First boot log (17 Nov 2026) also shows: duplicate SPMI device registration
   warnings, Bluetooth firmware `qca/htbtfw20.tlv` not in the initramfs, and
   PCIe (Wi-Fi), Type-C, cpufreq and SD-card nodes stuck in deferred probe on

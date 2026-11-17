@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 08:54:45 +0000
-Subject: [PATCH 7/9] ASoC: cs35l41: don't fail power-up when PUP/PDN status
+Subject: [PATCH 07/10] ASoC: cs35l41: don't fail power-up when PUP/PDN status
  never comes
 
 Both amps on the Xiaomi Mi 10 never set the PUP/PDN done bits but power up and play. Warn and carry on instead of failing the DAPM event with -ETIMEDOUT. Same idea as the bring-up's cs35l41-ignore-pup-poll.

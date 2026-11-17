@@ -1,23 +1,23 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 08:54:46 +0000
-Subject: [PATCH 8/9] ASoC: qcom: sm8250: set up both CS35L41 amps on Xiaomi Mi
- 10 Tertiary MI2S
+Subject: [PATCH 08/10] ASoC: qcom: sm8250: set up both CS35L41 amps on Xiaomi
+ Mi 10 Tertiary MI2S
 
 Only the first codec DAI got its format. On umi both amps need format, bit clock (PLL reference and fs monitor) and RX slot 0, which the bring-up found is the only slot the DSP fills.
 ---
- sound/soc/qcom/sm8250.c | 40 +++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 39 insertions(+), 1 deletion(-)
+ sound/soc/qcom/sm8250.c | 44 ++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 43 insertions(+), 1 deletion(-)
 
 diff --git a/sound/soc/qcom/sm8250.c b/sound/soc/qcom/sm8250.c
-index ff1ef5363..166a8e814 100644
+index ff1ef5363..d95704955 100644
 --- a/sound/soc/qcom/sm8250.c
 +++ b/sound/soc/qcom/sm8250.c
 @@ -3,6 +3,7 @@
  
  #include <dt-bindings/sound/qcom,q6afe.h>
  #include <linux/module.h>
-+#include <linux/of.h>
++#include <linux/string.h>
  #include <linux/platform_device.h>
  #include <sound/soc.h>
  #include <sound/soc-dapm.h>
@@ -26,7 +26,7 @@ index ff1ef5363..166a8e814 100644
  }
  
 +/*
-+ * Xiaomi Mi 10 (umi): two CS35L41 amps (earpiece and loudspeaker) share
++ * Two CS35L41 amps (earpiece and loudspeaker on the Xiaomi Mi 10) sharing
 + * Tertiary MI2S. Each needs its format, its bit clock as PLL reference and
 + * fs monitor, and its RX slots. The DSP only fills slot 0, so both amps
 + * take slot 0 on both RX inputs.
@@ -62,12 +62,16 @@ index ff1ef5363..166a8e814 100644
  static int sm8250_snd_startup(struct snd_pcm_substream *substream)
  {
  	unsigned int fmt = SND_SOC_DAIFMT_BP_FP;
-@@ -72,7 +107,10 @@ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
+@@ -72,7 +107,14 @@ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
  			Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
  			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
  		snd_soc_dai_set_fmt(cpu_dai, fmt);
 -		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
-+		if (of_machine_is_compatible("xiaomi,umi"))
++		/*
++		 * Not keyed on the board compatible: the stock bootloader's
++		 * dtbo overlay replaces the root compatible with "qcom,kona".
++		 */
++		if (!strcmp(codec_dai->component->driver->name, "cs35l41-codec"))
 +			sm8250_umi_amps_setup(rtd, codec_dai_fmt);
 +		else
 +			snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);

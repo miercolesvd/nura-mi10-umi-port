@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 09:21:21 +0000
+Subject: [PATCH 10/10] soc: qcom: pd-mapper, cpufreq-dt-platdev: match SM8250
+ renamed to qcom,kona
+
+The Xiaomi Mi 10 bootloader applies the stock dtbo, which overwrites the root model and compatible with "qcom,kona-mtp", "qcom,kona". The in-kernel PD mapper then found no domain table ("PDM: no support for the platform"), so the ADSP audio PD never came up and APR registered no services; and cpufreq-dt-platdev no longer blocklisted the SoC, leaving a cpufreq-dt device stuck in deferred probe.
+---
+ drivers/cpufreq/cpufreq-dt-platdev.c | 1 +
+ drivers/soc/qcom/qcom_pd_mapper.c    | 6 ++++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/drivers/cpufreq/cpufreq-dt-platdev.c b/drivers/cpufreq/cpufreq-dt-platdev.c
+index 9e86a0e8b..386970d7c 100644
+--- a/drivers/cpufreq/cpufreq-dt-platdev.c
++++ b/drivers/cpufreq/cpufreq-dt-platdev.c
+@@ -173,6 +173,7 @@ static const struct of_device_id blocklist[] __initconst = {
+ 	{ .compatible = "qcom,sm7325", },
+ 	{ .compatible = "qcom,sm8150", },
+ 	{ .compatible = "qcom,sm8250", },
++	{ .compatible = "qcom,kona", },	/* SM8250 after a downstream dtbo overlay */
+ 	{ .compatible = "qcom,sm8350", },
+ 	{ .compatible = "qcom,sm8450", },
+ 	{ .compatible = "qcom,sm8550", },
+diff --git a/drivers/soc/qcom/qcom_pd_mapper.c b/drivers/soc/qcom/qcom_pd_mapper.c
+index 6e30f0876..067fa3b5a 100644
+--- a/drivers/soc/qcom/qcom_pd_mapper.c
++++ b/drivers/soc/qcom/qcom_pd_mapper.c
+@@ -532,6 +532,12 @@ static const struct of_device_id qcom_pdm_domains[] __maybe_unused = {
+ 	{ .compatible = "qcom,apq8074", .data = NULL, },
+ 	{ .compatible = "qcom,apq8084", .data = NULL, },
+ 	{ .compatible = "qcom,apq8096", .data = msm8996_domains, },
++	/*
++	 * Downstream Qualcomm bootloaders apply the stock dtbo, which replaces
++	 * the root compatible of SM8250 phones (e.g. Xiaomi Mi 10) with
++	 * "qcom,kona-mtp", "qcom,kona".
++	 */
++	{ .compatible = "qcom,kona", .data = sm8250_domains, },
+ 	{ .compatible = "qcom,msm8226", .data = NULL, },
+ 	{ .compatible = "qcom,msm8909", .data = NULL, },
+ 	{ .compatible = "qcom,msm8916", .data = NULL, },
