@@ -42,9 +42,9 @@ PCIe RC2 (`qcom,pcie@1c10000`, downstream `pci-msm`):
 | Piece | Where | State |
 |---|---|---|
 | PCIe RC2 + PHY, AP2MDM_STATUS high / ERRFATAL low from boot | kernel patch 0011 (pins as on the Sony Xperia 1 II/5 II) | **works**: Gen3 x2 link, 17cb:0306 enumerates |
-| SBL over BHI | `mhi_pci_generic` (generic 17cb:0306 entry), `qcom/sdx55m/sbl1.mbn` linked into the firmware path by `umi-modem-start` | built, untested |
-| SAHARA (2/3, SBL) and EFS (10/11, mission mode) channels | kernel patch 0012: SDX55 channel table + `mhi_sahara_cdev` (`/dev/mhi_sahara`, `/dev/mhi_efs`; a write is one chained transfer, as SBL needs) | built, untested |
-| Image server + EFS syncs in RAM | `umi-modem` package: `mi10-mdm -M`, ported from mi-10-hotspot (same Sahara/EFS code, its simulator tests pass) | built, untested |
+| SBL over BHI | `mhi_pci_generic` (`sdx55_flashless=1`), `qcom/sdx55m/sbl1.mbn` linked into the firmware path by `umi-modem-start` | **works** |
+| SAHARA (2/3, SBL) and EFS (10/11, mission mode) channels | kernel patch 0012: SDX55 channel table + `mhi_sahara_cdev` (`/dev/mhi_sahara`, `/dev/mhi_efs`; a write is one chained transfer, as SBL needs) | **works** |
+| Image server + EFS syncs in RAM | `umi-modem` package: `mi10-mdm -M`, ported from mi-10-hotspot (same Sahara/EFS code, its simulator tests pass) | **works**: 12 images + 3 NV partitions in 4.4 s, mission mode, EFS channel open |
 | QRTR name service | mainline's in-kernel `ns` accepts node 2 announcing node 3's services, and the router learns the route to node 3 from those announcements: no patch needed | to verify |
 | Carrier configs over QRTR TFTP | `tqftpserv` | to do |
 | Data call | ModemManager over QRTR, or `mi10-qmi` from mi-10-hotspot; data on `mhi_net` (IP_HW0) with rmnet/QMAP | to do |
@@ -58,12 +58,15 @@ First boot (17 Nov 2026): RC2 links at Gen3 x2 and the modem enumerates as
 T99W175, which boots from its own flash (no BHI image, no Sahara), so
 `umi-modem` sets `mhi_pci_generic sdx55_flashless=1` (kernel patch 0012).
 
-Next: SBL loads over BHI, reaches MHI READY and M0, but its MSIs to the DWC
+Then: SBL loads over BHI, reaches MHI READY and M0, but its MSIs to the DWC
 iMSI-RX target fault in the SMMU (SID 0x1d01) instead of raising interrupts,
 so no event is ever seen. Stock Android points RC2's MSIs at a GIC MSI frame
 (`qcom,pci-msi` at 0x17a10040: SETSPI_NSR of a GICD alias, SPIs 832-863) and
 maps it in the modem's IOMMU domain. Patch 0011 now describes that as GICv3
 MBI (`mbi-ranges`, `mbi-alias`) and makes it RC2's `msi-parent`.
+
+With that (17 Nov 2026, kernel r8) the modem boots to mission mode and
+exposes IPCR, IP_HW0, IP_SW0, QMI, MBIM, DIAG and EFS.
 
 ## Safety
 
