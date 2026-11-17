@@ -2,7 +2,7 @@
 pkgname=device-xiaomi-umi
 pkgdesc="Xiaomi Mi 10"
 pkgver=3
-pkgrel=3
+pkgrel=4
 url="https://nura.eco"
 license="MIT"
 arch="aarch64"
@@ -17,6 +17,7 @@ depends="
 	msm-firmware-loader
 	postmarketos-base
 	soc-qcom
+	umi-modem
 	unl0kr-fbforcerefresh
 "
 makedepends="devicepkg-dev"

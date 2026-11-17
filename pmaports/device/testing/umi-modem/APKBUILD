@@ -1,6 +1,6 @@
 pkgname=umi-modem
 pkgver=0.1
-pkgrel=4
+pkgrel=5
 pkgdesc="Xiaomi Mi 10: boot the SDX55M modem (Sahara image server, EFS syncs kept in RAM)"
 url="https://github.com/miercolesvd/mi10-port"
 arch="aarch64"
@@ -16,6 +16,7 @@ source="
 	umi-modem.service
 	umi-modem.conf
 	umi-tqftpserv.service
+	umi-modem.preset
 	tqftpserv-version.diff
 	tqftpserv-tqftpserv.c
 	tqftpserv-translate.c
@@ -60,18 +61,21 @@ package() {
 		"$pkgdir"/usr/libexec/umi-modem/tqftpserv
 	install -Dm644 umi-tqftpserv.service \
 		"$pkgdir"/usr/lib/systemd/system/umi-tqftpserv.service
+	install -Dm644 umi-modem.preset \
+		"$pkgdir"/usr/lib/systemd/system-preset/90-umi-modem.preset
 	install -Dm644 tqftpserv-LICENSE \
 		"$pkgdir"/usr/share/licenses/$pkgname/tqftpserv-LICENSE
 }
 sha512sums="
 eab2a22eaa9bb2eac6756299fd678179a4f45fdc88957c1c84ca269a85764fbf8fabdf513fd4086c2539f75c55d602f7b20b5b53a779d5651e3c60e99b065878  mi10-mdm.c
 ebf93e3277948e065214d8593e59d8a2911b123255c5e572eef8aae47f85da97d40b0a34f8d7e18139398d3f6e5d85a34b3e907169d9a95a3be9f686f21c837d  mi10-qmi.c
-e77f44338e352f96505466077b748a9126513231d3cfa1121abe4845fc5860f073dec55cca253dc20921d57cac5d044c07dc53e61f894c6a3728faaed5e43e98  umi-modem-start
+15c38da8d03a8ca34d518b6a9cb87ec14a96acae55be47aba0cb959e5006d9ff4de4cf3dc3c5ea7e1237ea7c859cc4f46bd616b8f44f6e7447cac0decd093ec8  umi-modem-start
 2f7f9f277c183ede1e94fd313298a5d5600df94d59a5da758ff73c7844fb693d492513698611c5af60f3c8610be6e801ce6057d85d00357f28ae3a490c4e2a6e  umi-modem-data
 13c03bd00d5137908f4050f491ce016e19af66b59ec1840770171cdc4ec71511080eaf07488275507f24e03c5cca0fa32bcc98f8bb28981fa541fb7e771b45f5  umi-modem-data-up
 4074edcbc2cc6de6d0ee5f23e8d48bdabe9398e32b2355386650194b1be67852e0b0ca6629f1edca9cb8b30b10b4b08e2d3702893212acf97e906944f5c1a162  umi-modem.service
 46565337b18e469148742597cdb7cbe14e26f3b981851d178498837fde4ab5076817e7546d7bf849b604047432902b73977e375f6146ea97c29fc4f4efed3067  umi-modem.conf
 08f69e7fa24b6d3cf138e7b8b5b459ea680be088da5e2077e2a6ef19032f9799e1e15a52674a17947bb3e2c8dca4d38c13ce1ea30d06add1a8c760c22b2a1513  umi-tqftpserv.service
+539fbf82a352f594412671cf36e5b5d74693712bed0db7316eb32e1e9aaa3ea3972e56999e8d8ad9e67f3cf380a7fa5695595157cfe7fb004607c417d6b2fd2a  umi-modem.preset
 14906bab859fe707a71b507b3d04f364c45941d22c12ccd27cd1ea7446257d6dc15eb4e3628edd2cb85f0c11955de6da17ebefc9205f3ae5c2a9fc65e05eec48  tqftpserv-version.diff
 1fe8dc098f7ac7c4d6094302790c29d83cd75b76f4abae240b4b4ed18e72570b5817f52b7c93eec4cf76bf90d2c775618a0cb35dfaa1dfed004810bc7a0a5a45  tqftpserv-tqftpserv.c
 20f9b0f1c8792bb0db2b34c49c742268254de986de7b4ef327563f25fefe9e7113dc73d17f034b2dfb65372c00eed80c920760f2c7c831e648f669dab320faa6  tqftpserv-translate.c

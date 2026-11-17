@@ -112,4 +112,13 @@ else
 	modprobe mhi_pci_generic || log "cannot load mhi_pci_generic"
 fi
 
+# once it is up, put the modem online (it then registers by itself)
+(
+	for i in $(seq 1 60); do
+		sleep 5
+		/usr/sbin/mi10-qmi -t 3000 online >/dev/null 2>&1 && { log "modem online"; exit 0; }
+	done
+	log "could not set the modem online"
+) &
+
 exec /usr/sbin/mi10-mdm -M -m "$MAP" -e "$EFS_DIR"
