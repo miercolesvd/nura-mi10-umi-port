@@ -5,8 +5,18 @@ DEV=wwan0
 ip link set $DEV mtu "${MTU:-1500}"
 ip addr flush dev $DEV
 ip addr add "$IP/$PREFIX" dev $DEV
-# point-to-point link: no gateway; metric above Wi-Fi's while testing
+# point-to-point link: no gateway. Metric above NetworkManager's Wi-Fi
+# (600), so mobile data carries traffic only when Wi-Fi is off.
 ip route replace default dev $DEV metric 2000
+# DNS for when Wi-Fi is off
+if command -v resolvectl >/dev/null && resolvectl status >/dev/null 2>&1; then
+	resolvectl dns $DEV $DNS1 $DNS2
+else
+	for d in $DNS1 $DNS2; do
+		grep -q "^nameserver $d\$" /etc/resolv.conf 2>/dev/null ||
+			echo "nameserver $d" >> /etc/resolv.conf
+	done
+fi
 msg="umi-modem: mobile data up on $DEV: $IP/$PREFIX, MTU ${MTU:-?}, DNS ${DNS1:-?} ${DNS2:-}"
 echo "$msg" >&2
 echo "$msg" > /dev/kmsg 2>/dev/null

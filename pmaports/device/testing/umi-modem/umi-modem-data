@@ -2,12 +2,16 @@
 # Start a mobile data session and hold it (stop with Ctrl-C or SIGTERM).
 #   umi-modem-data [APN]
 # QMAP mux 1 on the modem's IP_HW0 channel (mhi_hwip0), as wwan0. Its
-# default route gets a high metric, so Wi-Fi stays preferred while testing.
+# default route gets a high metric, so Wi-Fi stays preferred; mobile data
+# carries traffic when Wi-Fi is off. Run at boot by umi-modem-data.service.
 APN=$1
 PHY=mhi_hwip0
 DEV=wwan0
 MUX=1
 
+# wait for the modem (umi-modem boots it)
+i=0
+while [ ! -d /sys/class/net/$PHY ] && [ $i -lt 120 ]; do sleep 2; i=$((i + 1)); done
 if [ ! -d /sys/class/net/$PHY ]; then
 	echo "no $PHY: is the modem up (umi-modem)?" >&2
 	exit 1

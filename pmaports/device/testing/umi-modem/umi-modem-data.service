@@ -1,0 +1,12 @@
+[Unit]
+Description=Mobile data on the Xiaomi Mi 10 modem (fallback route when Wi-Fi is off)
+After=umi-modem.service
+Wants=umi-modem.service
+
+[Service]
+ExecStart=/usr/sbin/umi-modem-data
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

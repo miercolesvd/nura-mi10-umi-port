@@ -1,1 +1,2 @@
 enable umi-modem.service
+enable umi-modem-data.service
