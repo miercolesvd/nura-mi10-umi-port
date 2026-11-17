@@ -68,6 +68,15 @@ jobs:
           path: ~/kernel-cache
           key: kernel-${{ hashFiles('pmaports/device/testing/linux-xiaomi-umi/**') }}
 
+      # Compiler cache: when the kernel does have to be rebuilt after a small
+      # change, only the changed files are compiled again.
+      - name: Restore compiler cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.local/var/pmbootstrap/cache_ccache_aarch64
+          key: ccache-${{ github.run_id }}
+          restore-keys: ccache-
+
       - name: Initialise pmbootstrap and add the umi packages
         run: |
           # "yes" is killed by SIGPIPE once init is done; that is not a failure
@@ -101,6 +110,13 @@ jobs:
             echo "HAVE_KERNEL_CACHE=true" >> "$GITHUB_ENV"
           fi
 
+          # the cache action restores files as the runner user; the build
+          # runs as the chroot's "pmos" user
+          if [ -d "$WORK/cache_ccache_aarch64" ]; then
+            sudo chown -R 12345:12345 "$WORK/cache_ccache_aarch64"
+            sudo du -sh "$WORK/cache_ccache_aarch64"
+          fi
+
       - name: Build kernel, firmware and device packages
         run: |
           WORK="$(pmbootstrap config work)"
@@ -124,6 +140,7 @@ jobs:
           fi
 
           pmbootstrap --details-to-stdout -y build --arch aarch64 linux-xiaomi-umi device-xiaomi-umi
+          pmbootstrap -q chroot --user -- ccache -s || true
 
           # keep the kernel package and its signing key for the next run
           sudo rm -rf "$CACHE"
@@ -173,6 +190,17 @@ jobs:
           name: ${{ env.FULL_IMAGE == 'true' && format('xiaomi-umi-{0}', env.UI) || 'boot-xiaomi-umi' }}
           path: out/
           retention-days: 14
+
+      - name: Prepare compiler cache for saving
+        if: success() && env.HAVE_KERNEL_CACHE != 'true'
+        run: sudo chmod -R a+rX "$HOME/.local/var/pmbootstrap/cache_ccache_aarch64" || true
+
+      - name: Save compiler cache
+        if: success() && env.HAVE_KERNEL_CACHE != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.local/var/pmbootstrap/cache_ccache_aarch64
+          key: ccache-${{ github.run_id }}
 
       - name: Show the end of the pmbootstrap log on failure
         if: failure()
