@@ -1,12 +1,15 @@
 # Nura on the Xiaomi Mi 10 (umi)
 
+
+
 Port of Nura (formerly postmarketOS) to the Xiaomi Mi 10 5G, codename `umi`
 (SM8250 / Snapdragon 865, A-only, UFS).
-
 Milestone 1 is "a working image first": package the existing mainline bring-up
 (`colorgarden/umi-mainline` on GitHub, commit `e38cb76b41c9`) for pmbootstrap
 with as few changes as possible, then clean it up towards a pmaports merge
 request.
+
+## Claude Opus 5.5 used for this. I did not write the code myself, however many hours of debugging and testing were needed from my side.
 
 ## Status
 
