@@ -1,6 +1,6 @@
 pkgname=firmware-xiaomi-umi
 pkgver=20261115
-pkgrel=0
+pkgrel=1
 pkgdesc="Firmware for Xiaomi Mi 10"
 subpackages="
 	$pkgname-adreno
@@ -15,6 +15,7 @@ options="!check !strip !archcheck !tracedeps pmb:cross-native"
 # The zap shader is signed for this device; a650_sqe.fw is the linux-firmware
 # one. Kept as local sources until a firmware repository for umi exists.
 source="
+	30-bt-firmware.files
 	30-gpu-firmware.files
 	a650_gmu.bin
 	a650_sqe.fw
@@ -46,15 +47,21 @@ adreno() {
 		-t "$subpkgdir/usr/lib/firmware/qcom/"
 }
 
-# msm/adreno is built into the kernel and probes before the rootfs is mounted.
+# msm/adreno and the QCA6390 Bluetooth driver (hci_uart_qca) are built into
+# the kernel and probe before the rootfs is mounted, so their firmware has to
+# be in the initramfs. The Bluetooth files come from linux-firmware-qca.
 initramfs() {
 	pkgdesc="Xiaomi Mi 10 firmware to be included in the initramfs"
+	depends="linux-firmware-qca"
 
 	install -Dm644 "$srcdir/30-gpu-firmware.files" \
 		"$subpkgdir/usr/share/mkinitfs/files/30-gpu-firmware.files"
+	install -Dm644 "$srcdir/30-bt-firmware.files" \
+		"$subpkgdir/usr/share/mkinitfs/files/30-bt-firmware.files"
 }
 
 sha512sums="
+543537dde67a8df6a44eb99d039f2d0c617f04d71bf4721acfde2bd0c49a4f38b7bf03b297760615ba873bc8a0450a3e6f6d2353b8baae2c18d7cc472cbd2424  30-bt-firmware.files
 773a4109bb0418e9181e0b7a3566d325d43a00b6ce42688e35e25538056a5c09d3b1688839b1442dbeeed57b24e492b79bea0ad0126848de23430a499765277f  30-gpu-firmware.files
 e8e8de215b2bb29936acc50c6ede8b44829c1903c889d990b395c5d596f06c441a7845da4e18fbae7d207086abb769e0105e715752853e489775b9fc7a4a2f08  a650_gmu.bin
 478ebed8d5fee34b97037de041737afde77756ac7162232f80d4cf0f13a34b65337be29dbb04558f4c183353c04518b3c17583bae98632dd6e32fb433d141b4c  a650_sqe.fw
