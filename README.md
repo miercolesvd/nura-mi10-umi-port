@@ -22,8 +22,9 @@ request.
 | Picture on the panel | **works**: the initramfs hook re-sends the panel on-sequence and sets brightness 1500; console + on-screen keyboard visible at boot (17 Nov 2026) |
 | 90 Hz | **works**: panel TE and frame completions measured at 90/s while scrolling (kernel patch 0006, stock 90 Hz on-sequence) |
 | Plasma Mobile on internal storage, Wi-Fi, Bluetooth | **work** (17 Nov 2026) |
-| Sound: bottom loudspeaker | **works** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
-| Sound: top speaker, stereo, microphones, headset | not working yet |
+| Sound: both loudspeakers | **work** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
+| Sound: stereo | top receiver (0x42) = left, bottom loudspeaker (0x40) = right, confirmed on the phone by setting the amps' slot registers by hand; kernel patch 0008 (pkgrel 4) sets it at stream start |
+| Sound: microphones, headset, earpiece-only for calls | not working yet |
 
 Target hardware variant: CSOT panel (`j2_mp_42_02_0b`, hwlevel MP,
 `oled_panel_id` 0B) with ST FTS touch. A Samsung-panel unit needs different

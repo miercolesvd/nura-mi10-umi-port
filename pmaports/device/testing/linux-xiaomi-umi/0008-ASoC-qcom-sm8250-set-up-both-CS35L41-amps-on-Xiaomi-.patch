@@ -4,13 +4,35 @@ Date: Tue, 17 Nov 2026 08:54:46 +0000
 Subject: [PATCH 08/10] ASoC: qcom: sm8250: set up both CS35L41 amps on Xiaomi
  Mi 10 Tertiary MI2S
 
-Only the first codec DAI got its format. On umi both amps need format, bit clock (PLL reference and fs monitor) and RX slot 0, which the bring-up found is the only slot the DSP fills.
+Only the first codec DAI got its format. On umi both amps need format, bit
+clock (PLL reference and fs monitor) and an RX slot. They take one I2S slot
+each in dai-link order: the top receiver (0x42) plays left and the bottom
+loudspeaker (0x40) right, checked by ear on the phone.
 ---
- sound/soc/qcom/sm8250.c | 44 ++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 43 insertions(+), 1 deletion(-)
+ .../arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts |  7 +--
+ sound/soc/qcom/sm8250.c                       | 47 ++++++++++++++++++-
+ 2 files changed, 50 insertions(+), 4 deletions(-)
 
+diff --git a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+index 228ac36df..e2aacf484 100644
+--- a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
++++ b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+@@ -293,9 +293,10 @@ &venus {
+  *   录音：WCD938x（SoundWire swr1/swr2）＋ LPASS VA macro 的 DMIC
+  *
+  * 板级细节：
+- *   - 0x40 那颗 amp 的 sound-name-prefix 是 RCV，接**上**听筒；
+- *     0x42 是 LCV，接**下**喇叭。TDM slot 0 = 左声道，所以 dai link 里
+- *     先写 cs35l41_rcv（0x42），才能保证"左声道在下面那颗喇叭"。
++ *   - 0x42 (cs35l41_rcv, prefix LCV) drives the top receiver, 0x40
++ *     (cs35l41_speaker, prefix RCV) the bottom loudspeaker, checked by ear
++ *     on the phone. The machine driver gives the codecs one I2S slot each in
++ *     dai-link order: top = left, bottom = right (landscape, top to the left).
+  *   - 两颗 amp 共用 reset 脚 GPIO114，IRQ 分开：112=LCV，113=RCV。
+  *   - WCD938x reset = GPIO32（active low），micbias 必须 2.75V（1.8V 会饿死 AMIC）。
+  *   - PD：ADSP 的 avs/audio 需要 pd-mapper 在 userspace 广播，否则声卡不 bind。
 diff --git a/sound/soc/qcom/sm8250.c b/sound/soc/qcom/sm8250.c
-index ff1ef5363..d95704955 100644
+index ff1ef5363..af4c3573b 100644
 --- a/sound/soc/qcom/sm8250.c
 +++ b/sound/soc/qcom/sm8250.c
 @@ -3,6 +3,7 @@
@@ -21,24 +43,27 @@ index ff1ef5363..d95704955 100644
  #include <linux/platform_device.h>
  #include <sound/soc.h>
  #include <sound/soc-dapm.h>
-@@ -49,6 +50,40 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+@@ -49,6 +50,43 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
  	return 0;
  }
  
 +/*
-+ * Two CS35L41 amps (earpiece and loudspeaker on the Xiaomi Mi 10) sharing
-+ * Tertiary MI2S. Each needs its format, its bit clock as PLL reference and
-+ * fs monitor, and its RX slots. The DSP only fills slot 0, so both amps
-+ * take slot 0 on both RX inputs.
++ * Two CS35L41 amps (top receiver and bottom loudspeaker on the Xiaomi Mi 10)
++ * sharing Tertiary MI2S. Each needs its format, its bit clock as PLL
++ * reference and fs monitor, and its RX slot. Amps take one I2S slot each in
++ * dai-link order, so the first codec plays left and the second right; both
++ * RX inputs point at that slot, whichever one feeds the DAC.
 + */
 +static void sm8250_umi_amps_setup(struct snd_soc_pcm_runtime *rtd,
 +				  unsigned int codec_dai_fmt)
 +{
-+	static const unsigned int rx_slot[] = { 0, 0 };
 +	struct snd_soc_dai *dai;
 +	int i, ret;
 +
 +	for_each_rtd_codec_dais(rtd, i, dai) {
++		unsigned int slot = min(i, 1);
++		unsigned int rx_slot[] = { slot, slot };
++
 +		snd_soc_dai_set_fmt(dai, codec_dai_fmt);
 +
 +		ret = snd_soc_component_set_sysclk(dai->component, 0, 0,
@@ -62,7 +87,7 @@ index ff1ef5363..d95704955 100644
  static int sm8250_snd_startup(struct snd_pcm_substream *substream)
  {
  	unsigned int fmt = SND_SOC_DAIFMT_BP_FP;
-@@ -72,7 +107,14 @@ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
+@@ -72,7 +110,14 @@ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
  			Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
  			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
  		snd_soc_dai_set_fmt(cpu_dai, fmt);

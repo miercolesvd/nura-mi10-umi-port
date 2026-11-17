@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=3
+pkgrel=4
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -96,7 +96,7 @@ e7cbba31fe733cc3021d8f0dd6a15841b202fea95db2449dd93169c552b47bd5de54b388c8dad2e2
 0279ce620c3ffccbf50417be69827f21826f7ddc0cc118a7dc8dca5a62d7315e23c808feffd6dbae4f0de6ed0c265741595e55542c95e4ef33729ad50100d7eb  0005-arm64-dts-qcom-add-Xiaomi-Mi-10-umi.patch
 141fdf4f698a82450938c1987fa3c5143758f66ea9845b09e6a77b86365e3c50740c2c626dc59c256c160f91bbc2f1c3944c7196c24651e474fa741f161c0d09  0006-arm64-dts-qcom-umi-send-the-panel-s-90-Hz-on-sequenc.patch
 4a1f2712fdd43bdca12ed5219badcb0077fcd9a4722d892bc09b1e25714ff094d5bb2700e612dc01009a666dab4605a8d12c5c440344803133665c15b68ae2a9  0007-ASoC-cs35l41-don-t-fail-power-up-when-PUP-PDN-status.patch
-d2bd99e063b9c6ad8f449bc38f471086a8f1e793e16300948ac9ef55ba641447c06a71207e6672a15d4d3d55633547ddf4f22359e46f560d5412ceb2d76b31c1  0008-ASoC-qcom-sm8250-set-up-both-CS35L41-amps-on-Xiaomi-.patch
-4bc4a09d72ecaa65c1194836a249b2717041afa2937fa559d5c0952b4545875478c1ab5231222cb6fa2c59b0fa0f2e25e24bd2471e8f86676e30d394507b48d4  0009-arm64-dts-qcom-umi-load-ADSP-firmware-through-msm-fi.patch
+7bb369c881dfa831c0ceacd4f9b982de9337d1a8904ae3298b60138fac4793ae4ea0631b8391f8ec083e996fa5d60ac9c2b4e79285bb8a792bacedbb475bd2b7  0008-ASoC-qcom-sm8250-set-up-both-CS35L41-amps-on-Xiaomi-.patch
+48a7c26a69e6a70ee3b2313b032ffc7d55f731c63f36e9c0af098cc3e9ff43987cd5198d2f1faeca0b240c973a69d815ff0b08ed8b11c815bebf85edff7f420e  0009-arm64-dts-qcom-umi-load-ADSP-firmware-through-msm-fi.patch
 f83a0e6267262017f89b9f41f4122dd0cae562a648450ddaa9356c06af9aa1ce8775f2a4b17c582f556580b0678ecc78c06d1511ed62d0428f7b66365afdcc06  0010-soc-qcom-pd-mapper-cpufreq-dt-platdev-match-SM8250-r.patch
 "
