@@ -1,6 +1,6 @@
 pkgname=umi-modem
 pkgver=0.1
-pkgrel=0
+pkgrel=1
 pkgdesc="Xiaomi Mi 10: boot the SDX55M modem (Sahara image server, EFS syncs kept in RAM)"
 url="https://github.com/miercolesvd/mi10-port"
 arch="aarch64"
@@ -29,5 +29,5 @@ sha512sums="
 eab2a22eaa9bb2eac6756299fd678179a4f45fdc88957c1c84ca269a85764fbf8fabdf513fd4086c2539f75c55d602f7b20b5b53a779d5651e3c60e99b065878  mi10-mdm.c
 7c129fb5889887716ff1a752dba97a56a4e8e25ae684c583cd0bcc619bea3f17ff1ef3afb05a5cf9e3954c2f749bc5896695825b8107c224323ac95e1f843bf0  umi-modem-start
 ebed391705337070bb5ba5e11c22e532adf3255f6d9b03a9cdf6ce3f14b4e26ea6e1a75e69dedaf10c1b8591dbfe3c4bb81d8d663cdab7bb7b86c9382bc0a071  umi-modem.service
-7e75c06af50a7373d89b7799e599e07c7de15dbadc62e358bbfc1d356254260256cc13e1c8ca849b152f57004921fd01f75f49443183b7a0aa37da2fca89661c  umi-modem.conf
+46565337b18e469148742597cdb7cbe14e26f3b981851d178498837fde4ab5076817e7546d7bf849b604047432902b73977e375f6146ea97c29fc4f4efed3067  umi-modem.conf
 "

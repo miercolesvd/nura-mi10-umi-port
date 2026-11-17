@@ -41,7 +41,7 @@ PCIe RC2 (`qcom,pcie@1c10000`, downstream `pci-msm`):
 
 | Piece | Where | State |
 |---|---|---|
-| PCIe RC2 + PHY, AP2MDM_STATUS high / ERRFATAL low from boot | kernel patch 0011 (pins as on the Sony Xperia 1 II/5 II) | built, untested |
+| PCIe RC2 + PHY, AP2MDM_STATUS high / ERRFATAL low from boot | kernel patch 0011 (pins as on the Sony Xperia 1 II/5 II) | **works**: Gen3 x2 link, 17cb:0306 enumerates |
 | SBL over BHI | `mhi_pci_generic` (generic 17cb:0306 entry), `qcom/sdx55m/sbl1.mbn` linked into the firmware path by `umi-modem-start` | built, untested |
 | SAHARA (2/3, SBL) and EFS (10/11, mission mode) channels | kernel patch 0012: SDX55 channel table + `mhi_sahara_cdev` (`/dev/mhi_sahara`, `/dev/mhi_efs`; a write is one chained transfer, as SBL needs) | built, untested |
 | Image server + EFS syncs in RAM | `umi-modem` package: `mi10-mdm -M`, ported from mi-10-hotspot (same Sahara/EFS code, its simulator tests pass) | built, untested |
@@ -53,9 +53,10 @@ PCIe RC2 (`qcom,pcie@1c10000`, downstream `pci-msm`):
 `mhi_pci_generic` is blacklisted so the modem only starts once its Sahara
 server is ready; the service loads it (or rebinds the device on restart).
 
-Open question: if this modem reports subsystem ID 17cb:010c, mainline maps it
-to the Foxconn T99W175 entry, which has no Sahara channel. `lspci -nnv` on the
-phone tells.
+First boot (17 Nov 2026): RC2 links at Gen3 x2 and the modem enumerates as
+17cb:0306, subsystem 17cb:010c. Mainline maps that subsystem to the Foxconn
+T99W175, which boots from its own flash (no BHI image, no Sahara), so
+`umi-modem` sets `mhi_pci_generic sdx55_flashless=1` (kernel patch 0012).
 
 ## Safety
 

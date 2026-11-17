@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 10:52:29 +0000
-Subject: [PATCH 12/12] bus: mhi: host: serve a flashless SDX55M's Sahara and
- EFS channels
+Subject: [PATCH] bus: mhi: host: serve a flashless SDX55M's Sahara and EFS
+ channels
 
 A flashless SDX55M (Xiaomi Mi 10) gets only SBL over BHI. SBL then asks
 for every other image over Sahara on channel 2/3, and in mission mode the
@@ -11,6 +11,9 @@ memory debug). Give the generic SDX55 entry those channels, and add a
 small MHI client driver that exposes them as /dev/mhi_sahara and
 /dev/mhi_efs for a userspace server.
 
+The Mi 10's modem reports subsystem 17cb:010c, like the Foxconn T99W175,
+so a module parameter (sdx55_flashless) tells the driver which one it is.
+
 write() sends its buffer as one transfer of chained TREs, because SBL
 consumes a READ_DATA answer only once it sees the end of the transfer.
 read() returns at most one transfer.
@@ -18,8 +21,8 @@ read() returns at most one transfer.
  drivers/bus/mhi/host/Kconfig           |   9 +
  drivers/bus/mhi/host/Makefile          |   2 +
  drivers/bus/mhi/host/mhi_sahara_cdev.c | 442 +++++++++++++++++++++++++
- drivers/bus/mhi/host/pci_generic.c     |  39 ++-
- 4 files changed, 491 insertions(+), 1 deletion(-)
+ drivers/bus/mhi/host/pci_generic.c     |  52 ++-
+ 4 files changed, 504 insertions(+), 1 deletion(-)
  create mode 100644 drivers/bus/mhi/host/mhi_sahara_cdev.c
 
 diff --git a/drivers/bus/mhi/host/Kconfig b/drivers/bus/mhi/host/Kconfig
@@ -498,7 +501,7 @@ index 000000000..40d09cf67
 +MODULE_DESCRIPTION("Character devices for MHI Sahara and EFS channels");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/bus/mhi/host/pci_generic.c b/drivers/bus/mhi/host/pci_generic.c
-index 833d0c940..2a44716e0 100644
+index 833d0c940..787f74914 100644
 --- a/drivers/bus/mhi/host/pci_generic.c
 +++ b/drivers/bus/mhi/host/pci_generic.c
 @@ -275,6 +275,43 @@ static struct mhi_event_config modem_qcom_v1_mhi_events[] = {
@@ -554,3 +557,30 @@ index 833d0c940..2a44716e0 100644
  	.bar_num = MHI_PCI_DEFAULT_BAR_NUM,
  	.dma_data_width = 32,
  	.mru_default = 32768,
+@@ -1163,6 +1200,16 @@ static int mhi_pci_generic_edl_trigger(struct mhi_controller *mhi_cntrl)
+ 	return ret;
+ }
+ 
++/*
++ * The flashless SDX55M in the Xiaomi Mi 10 reports subsystem 17cb:010c, the
++ * same as the Foxconn T99W175, which boots from its own flash. Nothing on
++ * the bus tells them apart, so the board's userspace says which one it is.
++ */
++static bool sdx55_flashless;
++module_param(sdx55_flashless, bool, 0444);
++MODULE_PARM_DESC(sdx55_flashless,
++		 "17cb:0306 with subsystem 17cb:010c is a flashless SDX55M (Xiaomi Mi 10), not a Foxconn T99W175");
++
+ static int mhi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ {
+ 	const struct mhi_pci_dev_info *info = (struct mhi_pci_dev_info *) id->driver_data;
+@@ -1171,6 +1218,9 @@ static int mhi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	struct mhi_controller *mhi_cntrl;
+ 	int err;
+ 
++	if (sdx55_flashless && info == &mhi_foxconn_sdx55_info)
++		info = &mhi_qcom_sdx55_info;
++
+ 	dev_info(&pdev->dev, "MHI PCI device found: %s\n", info->name);
+ 
+ 	/* mhi_pdev.mhi_cntrl must be zero-initialized */
