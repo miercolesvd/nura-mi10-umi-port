@@ -93,3 +93,10 @@ read-only; the modem's EFS syncs are kept in `/run/umi-modem/efs` (RAM).
 Never write to `mdm1m9kefs*`, `modemst*`, `fsg` or `persist`.
 
 Calls also need the voice path (q6voice), not done yet.
+
+TFTP version 3 was it (17 Nov 2026): with `umi-tqftpserv -v 3` the modem asks
+for its files about a second after boot, as on stock (whose requests also
+went to the version 3 server). The transfer then stalled at the 8th block of
+every 8-block window: mainline's IPCR channel ring has 8 elements, so only 7
+packets fit in flight and qrtr-mhi drops the 8th. Patch 0012 gives the SDX55
+IPCR 64 uplink / 32 downlink elements.

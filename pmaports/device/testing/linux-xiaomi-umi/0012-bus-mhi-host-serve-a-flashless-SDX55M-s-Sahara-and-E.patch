@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 10:52:29 +0000
-Subject: [PATCH 12/13] bus: mhi: host: serve a flashless SDX55M's Sahara and
+Subject: [PATCH 12/14] bus: mhi: host: serve a flashless SDX55M's Sahara and
  EFS channels
 
 A flashless SDX55M (Xiaomi Mi 10) gets only SBL over BHI. SBL then asks
@@ -21,8 +21,8 @@ read() returns at most one transfer.
  drivers/bus/mhi/host/Kconfig           |   9 +
  drivers/bus/mhi/host/Makefile          |   2 +
  drivers/bus/mhi/host/mhi_sahara_cdev.c | 442 +++++++++++++++++++++++++
- drivers/bus/mhi/host/pci_generic.c     |  52 ++-
- 4 files changed, 504 insertions(+), 1 deletion(-)
+ drivers/bus/mhi/host/pci_generic.c     |  53 ++-
+ 4 files changed, 505 insertions(+), 1 deletion(-)
  create mode 100644 drivers/bus/mhi/host/mhi_sahara_cdev.c
 
 diff --git a/drivers/bus/mhi/host/Kconfig b/drivers/bus/mhi/host/Kconfig
@@ -501,10 +501,10 @@ index 000000000..40d09cf67
 +MODULE_DESCRIPTION("Character devices for MHI Sahara and EFS channels");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/bus/mhi/host/pci_generic.c b/drivers/bus/mhi/host/pci_generic.c
-index 833d0c940..787f74914 100644
+index 833d0c940..d721427b0 100644
 --- a/drivers/bus/mhi/host/pci_generic.c
 +++ b/drivers/bus/mhi/host/pci_generic.c
-@@ -275,6 +275,43 @@ static struct mhi_event_config modem_qcom_v1_mhi_events[] = {
+@@ -275,6 +275,44 @@ static struct mhi_event_config modem_qcom_v1_mhi_events[] = {
  	MHI_EVENT_CONFIG_HW_DATA(5, 2048, 101)
  };
  
@@ -526,8 +526,9 @@ index 833d0c940..787f74914 100644
 +	MHI_CHANNEL_CONFIG_DL(13, "MBIM", 4, 0),
 +	MHI_CHANNEL_CONFIG_UL(14, "QMI", 4, 0),
 +	MHI_CHANNEL_CONFIG_DL(15, "QMI", 4, 0),
-+	MHI_CHANNEL_CONFIG_UL(20, "IPCR", 8, 0),
-+	MHI_CHANNEL_CONFIG_DL_AUTOQUEUE(21, "IPCR", 8, 0),
++	/* the modem's TFTP client asks for 8 blocks of 7.5 KiB at a time */
++	MHI_CHANNEL_CONFIG_UL(20, "IPCR", 64, 0),
++	MHI_CHANNEL_CONFIG_DL_AUTOQUEUE(21, "IPCR", 32, 0),
 +	MHI_CHANNEL_CONFIG_UL_FP(34, "FIREHOSE", 32, 0),
 +	MHI_CHANNEL_CONFIG_DL_FP(35, "FIREHOSE", 32, 0),
 +	MHI_CHANNEL_CONFIG_UL(46, "IP_SW0", 64, 2),
@@ -548,7 +549,7 @@ index 833d0c940..787f74914 100644
  static const struct mhi_controller_config modem_qcom_v2_mhiv_config = {
  	.max_channels = 128,
  	.timeout_ms = 8000,
-@@ -321,7 +358,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx55_info = {
+@@ -321,7 +359,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx55_info = {
  	.fw = "qcom/sdx55m/sbl1.mbn",
  	.edl = "qcom/sdx55m/edl.mbn",
  	.edl_trigger = true,
@@ -557,7 +558,7 @@ index 833d0c940..787f74914 100644
  	.bar_num = MHI_PCI_DEFAULT_BAR_NUM,
  	.dma_data_width = 32,
  	.mru_default = 32768,
-@@ -1163,6 +1200,16 @@ static int mhi_pci_generic_edl_trigger(struct mhi_controller *mhi_cntrl)
+@@ -1163,6 +1201,16 @@ static int mhi_pci_generic_edl_trigger(struct mhi_controller *mhi_cntrl)
  	return ret;
  }
  
@@ -574,7 +575,7 @@ index 833d0c940..787f74914 100644
  static int mhi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  {
  	const struct mhi_pci_dev_info *info = (struct mhi_pci_dev_info *) id->driver_data;
-@@ -1171,6 +1218,9 @@ static int mhi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+@@ -1171,6 +1219,9 @@ static int mhi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
  	struct mhi_controller *mhi_cntrl;
  	int err;
  

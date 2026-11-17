@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 12:49:07 +0000
-Subject: [PATCH] regulator: add the Xiaomi Mi 10 SDX55M power-on sequence
+Subject: [PATCH 14/14] regulator: add the Xiaomi Mi 10 SDX55M power-on
+ sequence
 
 The stock esoc driver never boots the Mi 10's SDX55M from the state it
 powered up in: it warm-resets it through the PON block of its PMIC
