@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 08:56:15 +0000
+Subject: [PATCH 9/9] arm64: dts: qcom: umi: load ADSP firmware through
+ msm-firmware-loader
+
+---
+ arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+index 228ac36df..9d2906dc3 100644
+--- a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
++++ b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+@@ -235,7 +235,13 @@ wifi@0 {
+  */
+ &adsp {
+ 	status = "okay";
+-	firmware-name = "qcom/sm8250/umi/adsp.mbn";
++	/*
++	 * Loaded from the phone's own "modem" partition by
++	 * msm-firmware-loader, which links image/adsp.mdt and adsp.bNN
++	 * (plus the adspr/adspua .jsn maps for pd-mapper) into the
++	 * firmware search path. Nothing is redistributed.
++	 */
++	firmware-name = "adsp.mdt";
+ 
+ 	/* AVCS 音频拓扑和 ADSP 的 audio PD 共用 0x1801 这个音频 context bank，
+ 	 * 需要让 glink 上的 APR 总线上报这条 IOMMU 映射，否则拓扑加载失败。

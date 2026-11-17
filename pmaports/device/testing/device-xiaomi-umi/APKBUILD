@@ -1,7 +1,7 @@
 # Reference: <https://nura.eco/devicepkg>
 pkgname=device-xiaomi-umi
 pkgdesc="Xiaomi Mi 10"
-pkgver=2
+pkgver=3
 pkgrel=0
 url="https://nura.eco"
 license="MIT"
@@ -14,6 +14,7 @@ depends="
 	linux-firmware-qca
 	linux-xiaomi-umi
 	mkbootimg
+	msm-firmware-loader
 	postmarketos-base
 	soc-qcom
 	unl0kr-fbforcerefresh
@@ -23,6 +24,9 @@ source="
 	90-device-xiaomi-umi.rules
 	deviceinfo
 	initfs-hook.sh
+	modules-load.conf
+	ucm-HiFi.conf
+	ucm-card.conf
 "
 
 build() {
@@ -31,10 +35,19 @@ build() {
 
 package() {
 	devicepkg_package $startdir $pkgname
+
+	# ALSA UCM: the card is driver "sm8250", long name "Xiaomi Mi 10"
+	install -Dm644 "$srcdir"/ucm-card.conf \
+		"$pkgdir/usr/share/alsa/ucm2/conf.d/sm8250/Xiaomi Mi 10.conf"
+	install -Dm644 "$srcdir"/ucm-HiFi.conf \
+		"$pkgdir"/usr/share/alsa/ucm2/Xiaomi/umi/HiFi.conf
 }
 
 sha512sums="
 2a061fd6a5588e0a9b213c3f44cacc433b311635c17a1c29a94b1d5a4e1428b9f73d9b7505cb146ece586538138ea7be9591046b7270f7e724f47dc9fca8a8e4  90-device-xiaomi-umi.rules
 38e487901d39afe225a8af5b87e78094600849e49a783a5f60fac6e9755686351e76221b7993658920b12a8836d277d1d71260362b9ea418320d6f827f6527ee  deviceinfo
 a2dcc16b8a7cb1c76776adcfc532274d8ea18a09ca0331d3e5abfa80ea25918e76f83c545952ec4faad75f26da4504cdac530827eaba79d8ad75b7cdf28d7048  initfs-hook.sh
+893a7c39b57bc71b6b5c7d3ed7448324bf1c5520ecf0f274aecda18222945fbb38118ad093bc4469975dad1ad375838779620836ff42e9a42c61f412b75787cc  modules-load.conf
+d3c33a696304fccc599d73bba92e8b6d182fd5c566062f965258dbb3a4547c56ec45ba41ffdd6fe5eef85328d13fb6ddbceb545fb38fd25fac2fd352ccab0201  ucm-HiFi.conf
+bcbba4d4a913ab80c2d768f9c220b2401fd71ac9b4190713f5b149634bc49cd1cc6b42a9b8caf5691a319d8de2aa3dc06d29826473d51fbc09057ebe405f9c58  ucm-card.conf
 "

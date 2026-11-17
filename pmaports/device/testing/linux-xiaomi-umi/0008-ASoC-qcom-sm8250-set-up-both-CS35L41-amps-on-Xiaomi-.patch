@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 08:54:46 +0000
+Subject: [PATCH 8/9] ASoC: qcom: sm8250: set up both CS35L41 amps on Xiaomi Mi
+ 10 Tertiary MI2S
+
+Only the first codec DAI got its format. On umi both amps need format, bit clock (PLL reference and fs monitor) and RX slot 0, which the bring-up found is the only slot the DSP fills.
+---
+ sound/soc/qcom/sm8250.c | 40 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/qcom/sm8250.c b/sound/soc/qcom/sm8250.c
+index ff1ef5363..166a8e814 100644
+--- a/sound/soc/qcom/sm8250.c
++++ b/sound/soc/qcom/sm8250.c
+@@ -3,6 +3,7 @@
+ 
+ #include <dt-bindings/sound/qcom,q6afe.h>
+ #include <linux/module.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <sound/soc.h>
+ #include <sound/soc-dapm.h>
+@@ -49,6 +50,40 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 	return 0;
+ }
+ 
++/*
++ * Xiaomi Mi 10 (umi): two CS35L41 amps (earpiece and loudspeaker) share
++ * Tertiary MI2S. Each needs its format, its bit clock as PLL reference and
++ * fs monitor, and its RX slots. The DSP only fills slot 0, so both amps
++ * take slot 0 on both RX inputs.
++ */
++static void sm8250_umi_amps_setup(struct snd_soc_pcm_runtime *rtd,
++				  unsigned int codec_dai_fmt)
++{
++	static const unsigned int rx_slot[] = { 0, 0 };
++	struct snd_soc_dai *dai;
++	int i, ret;
++
++	for_each_rtd_codec_dais(rtd, i, dai) {
++		snd_soc_dai_set_fmt(dai, codec_dai_fmt);
++
++		ret = snd_soc_component_set_sysclk(dai->component, 0, 0,
++						   MI2S_BCLK_RATE,
++						   SND_SOC_CLOCK_IN);
++		if (ret)
++			dev_warn(dai->dev, "PLL ref clock: %d\n", ret);
++
++		ret = snd_soc_dai_set_sysclk(dai, 0, MI2S_BCLK_RATE,
++					     SND_SOC_CLOCK_IN);
++		if (ret)
++			dev_warn(dai->dev, "sysclk: %d\n", ret);
++
++		ret = snd_soc_dai_set_channel_map(dai, 0, NULL,
++						  ARRAY_SIZE(rx_slot), rx_slot);
++		if (ret)
++			dev_warn(dai->dev, "channel map: %d\n", ret);
++	}
++}
++
+ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
+ {
+ 	unsigned int fmt = SND_SOC_DAIFMT_BP_FP;
+@@ -72,7 +107,10 @@ static int sm8250_snd_startup(struct snd_pcm_substream *substream)
+ 			Q6AFE_LPASS_CLK_ID_TER_MI2S_IBIT,
+ 			MI2S_BCLK_RATE, SNDRV_PCM_STREAM_PLAYBACK);
+ 		snd_soc_dai_set_fmt(cpu_dai, fmt);
+-		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
++		if (of_machine_is_compatible("xiaomi,umi"))
++			sm8250_umi_amps_setup(rtd, codec_dai_fmt);
++		else
++			snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
+ 		break;
+ 	default:
+ 		break;

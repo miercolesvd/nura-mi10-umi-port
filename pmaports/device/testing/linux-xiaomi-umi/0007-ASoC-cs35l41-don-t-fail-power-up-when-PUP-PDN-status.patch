@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 08:54:45 +0000
+Subject: [PATCH 7/9] ASoC: cs35l41: don't fail power-up when PUP/PDN status
+ never comes
+
+Both amps on the Xiaomi Mi 10 never set the PUP/PDN done bits but power up and play. Warn and carry on instead of failing the DAPM event with -ETIMEDOUT. Same idea as the bring-up's cs35l41-ignore-pup-poll.
+---
+ sound/soc/codecs/cs35l41-lib.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/sound/soc/codecs/cs35l41-lib.c b/sound/soc/codecs/cs35l41-lib.c
+index 1702f2604..719e40117 100644
+--- a/sound/soc/codecs/cs35l41-lib.c
++++ b/sound/soc/codecs/cs35l41-lib.c
+@@ -1269,8 +1269,16 @@ int cs35l41_global_enable(struct device *dev, struct regmap *regmap, enum cs35l4
+ 		ret = regmap_read_poll_timeout(regmap, CS35L41_IRQ1_STATUS1,
+ 					int_status, int_status & pup_pdn_mask,
+ 					1000, 100000);
+-		if (ret)
+-			dev_err(dev, "Enable(%d) failed: %d\n", enable, ret);
++		if (ret) {
++			/*
++			 * The two amps on the Xiaomi Mi 10 never raise the
++			 * PUP/PDN done bits, yet power up and play fine.
++			 * Don't fail the DAPM event over it.
++			 */
++			dev_warn(dev, "Enable(%d): no PUP/PDN status (%d), continuing\n",
++				 enable, ret);
++			ret = 0;
++		}
+ 
+ 		/* Clear PUP/PDN status */
+ 		regmap_write(regmap, CS35L41_IRQ1_STATUS1, pup_pdn_mask);
+@@ -1286,8 +1294,16 @@ int cs35l41_global_enable(struct device *dev, struct regmap *regmap, enum cs35l4
+ 		ret = regmap_read_poll_timeout(regmap, CS35L41_IRQ1_STATUS1,
+ 					int_status, int_status & pup_pdn_mask,
+ 					1000, 100000);
+-		if (ret)
+-			dev_err(dev, "Enable(%d) failed: %d\n", enable, ret);
++		if (ret) {
++			/*
++			 * The two amps on the Xiaomi Mi 10 never raise the
++			 * PUP/PDN done bits, yet power up and play fine.
++			 * Don't fail the DAPM event over it.
++			 */
++			dev_warn(dev, "Enable(%d): no PUP/PDN status (%d), continuing\n",
++				 enable, ret);
++			ret = 0;
++		}
+ 
+ 		/* Clear PUP/PDN status */
+ 		regmap_write(regmap, CS35L41_IRQ1_STATUS1, pup_pdn_mask);

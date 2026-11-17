@@ -187,8 +187,14 @@ jobs:
             # sparse image (deviceinfo_flash_sparse), flashable with fastboot
             sudo cp "$WORK/chroot_native/home/pmos/rootfs/$DEVICE.img" "out/$DEVICE.img"
           fi
+          # The umi packages, to update an installed phone in place:
+          #   sudo apk add --allow-untrusted ./packages/*.apk
+          mkdir out/packages
+          sudo find "$WORK/packages" -name '*.apk' \( -name 'linux-xiaomi-umi-*' \
+            -o -name 'device-xiaomi-umi-*' -o -name 'firmware-xiaomi-umi*' \) \
+            -exec cp {} out/packages/ \;
           sudo chown -R "$(id -u):$(id -g)" out
-          (cd out && sha256sum * | tee SHA256SUMS)
+          (cd out && find . -type f ! -name SHA256SUMS | sort | xargs sha256sum | tee SHA256SUMS)
           {
             echo "### $DEVICE (UI: $UI, debug shell: $DEBUG_SHELL, full image: $FULL_IMAGE)"
             echo '```'

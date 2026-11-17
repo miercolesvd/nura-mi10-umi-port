@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=1
+pkgrel=2
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -48,6 +48,9 @@ source="
 	0004-power-supply-add-Qualcomm-PM8150B-fuel-gauge-SMB5-ch.patch
 	0005-arm64-dts-qcom-add-Xiaomi-Mi-10-umi.patch
 	0006-arm64-dts-qcom-umi-send-the-panel-s-90-Hz-on-sequenc.patch
+	0007-ASoC-cs35l41-don-t-fail-power-up-when-PUP-PDN-status.patch
+	0008-ASoC-qcom-sm8250-set-up-both-CS35L41-amps-on-Xiaomi-.patch
+	0009-arm64-dts-qcom-umi-load-ADSP-firmware-through-msm-fi.patch
 "
 builddir="$srcdir/linux-$pkgver"
 
@@ -91,4 +94,7 @@ sha512sums="
 e7cbba31fe733cc3021d8f0dd6a15841b202fea95db2449dd93169c552b47bd5de54b388c8dad2e2214211a3d92726254b6be1de018eec5811d95a4f85d88f00  0004-power-supply-add-Qualcomm-PM8150B-fuel-gauge-SMB5-ch.patch
 0279ce620c3ffccbf50417be69827f21826f7ddc0cc118a7dc8dca5a62d7315e23c808feffd6dbae4f0de6ed0c265741595e55542c95e4ef33729ad50100d7eb  0005-arm64-dts-qcom-add-Xiaomi-Mi-10-umi.patch
 141fdf4f698a82450938c1987fa3c5143758f66ea9845b09e6a77b86365e3c50740c2c626dc59c256c160f91bbc2f1c3944c7196c24651e474fa741f161c0d09  0006-arm64-dts-qcom-umi-send-the-panel-s-90-Hz-on-sequenc.patch
+8e3f8eb90d094fe4048bd68ef75b9ed442b58315fa3375007e2e21bf8a7e28298bc66fadd79dfc82ea08e9eafcbd5a08adeaea8208957e61c67f5ff756a456e4  0007-ASoC-cs35l41-don-t-fail-power-up-when-PUP-PDN-status.patch
+c7c38509598f0657493cdb635408424b9e8d0dbce4510a41f04222e6b609068030fe715fc1836ce582f97fc19194d7a89fcfa7614111c465e338f16fe636aff6  0008-ASoC-qcom-sm8250-set-up-both-CS35L41-amps-on-Xiaomi-.patch
+6faa30cfb9ef1c2869d0f40147c23a0ed2e7c0da90aa882e44b318e62a75dd3da32585be9c7daad14af04f79fdd054254e4bc6129b97df485528e899fdbe8ae3  0009-arm64-dts-qcom-umi-load-ADSP-firmware-through-msm-fi.patch
 "
