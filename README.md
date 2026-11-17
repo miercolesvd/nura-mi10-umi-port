@@ -26,7 +26,7 @@ request.
 | Sound: both loudspeakers | **work** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
 | Sound: stereo | top receiver (0x42) = left, bottom loudspeaker (0x40) = right, confirmed on the phone by setting the amps' slot registers by hand; kernel patch 0008 (pkgrel 4) sets it at stream start |
 | Sound: internal microphones | **work** through PulseAudio as a stereo `Mic` input (top mic left, bottom mic right; 17 Nov 2026) |
-| Sound: headset, earpiece-only for calls | not working yet |
+| Sound: wired headsets (no 3.5 mm jack; USB-C analog adapters go through the WCD938x), earpiece-only output for calls | not working yet |
 
 Target hardware variant: CSOT panel (`j2_mp_42_02_0b`, hwlevel MP,
 `oled_panel_id` 0B) with ST FTS touch. A Samsung-panel unit needs different
@@ -152,7 +152,7 @@ artifact's `packages/` folder to the phone and run
 
 1. Full build in pmbootstrap, RAM boot, collect `dmesg`.
 2. Root filesystem on `userdata`, UI, Wi-Fi.
-3. Sound: headset (jack detection), earpiece-only output for calls.
+3. Sound: USB-C analog headset adapters, earpiece-only output for calls (with the modem).
 4. Sensors (SLPI), video decode (Venus).
 5. Forward-port to the pmaports SM8250 kernel (7.2), drop the stubs and
    `*_ignore_unused`, own `dtbo`, then propose `device-xiaomi-umi` for testing.
