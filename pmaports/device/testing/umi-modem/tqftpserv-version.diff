@@ -1,0 +1,42 @@
+diff --git a/tqftpserv.c b/tqftpserv.c
+index a21778f..b1417ad 100644
+--- a/tqftpserv.c
++++ b/tqftpserv.c
+@@ -916,8 +916,9 @@ static void print_usage(void)
+ {
+ 	extern const char *__progname;
+ 
+-	fprintf(stderr, "Usage: %s [-d] [-h]\n", __progname);
++	fprintf(stderr, "Usage: %s [-d] [-v version] [-h]\n", __progname);
+ 	fprintf(stderr, " -d\tPrint detailed debug information\n");
++	fprintf(stderr, " -v\tService version to publish (default 1)\n");
+ 	fprintf(stderr, " -h\tPrint this usage info\n");
+ }
+ 
+@@ -936,12 +937,16 @@ int main(int argc, char **argv)
+ 	int opt;
+ 	int ret;
+ 	int fd;
++	int version = 1;
+ 
+-	while ((opt = getopt(argc, argv, "dh")) != -1) {
++	while ((opt = getopt(argc, argv, "dhv:")) != -1) {
+ 		switch (opt) {
+ 		case 'd':
+ 			tftp_debug = true;
+ 			break;
++		case 'v':
++			version = atoi(optarg);
++			break;
+ 		case 'h':
+ 			print_usage();
+ 			return 0;
+@@ -962,7 +967,7 @@ int main(int argc, char **argv)
+ 		exit(1);
+ 	}
+ 
+-	ret = qrtr_publish(fd, 4096, 1, 0);
++	ret = qrtr_publish(fd, 4096, version, 0);
+ 	if (ret < 0) {
+ 		fprintf(stderr, "failed to publish service registry service\n");
+ 		exit(1);

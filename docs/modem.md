@@ -78,6 +78,13 @@ booting it, then raises AP2MDM_STATUS. Kernel patch 0014 does the same as
 RC2's vddpe-3v3 supply (`umi-sdx55-power`). Rebinding mhi_pci_generic is not
 a restart: the modem stays in D3; restart the phone instead.
 
+The reset works (logged before link-up) but the modem still comes up
+offline. The modem also never makes a TFTP request here, while on stock (in
+mi-10-hotspot, which publishes TFTP as service versions 1 and 3) it fetches
+its carrier configs. Nura's tqftpserv publishes version 1 only, so
+umi-modem now also runs tqftpserv publishing version 3 (`umi-tqftpserv`,
+with request logging), before the modem boots.
+
 ## Safety
 
 Firmware is read from the modem partition mounted read-only by

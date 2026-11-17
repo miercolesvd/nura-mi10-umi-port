@@ -1,0 +1,9 @@
+[Unit]
+Description=QRTR TFTP server for the Xiaomi Mi 10 SDX55 modem (service version 3)
+Before=umi-modem.service
+After=msm-firmware-loader.service
+
+[Service]
+ExecStart=/usr/libexec/umi-modem/tqftpserv -d -v 3
+Restart=always
+RestartSec=5
