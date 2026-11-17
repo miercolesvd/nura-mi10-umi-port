@@ -22,8 +22,8 @@ on:
         type: boolean
         default: false
       runner:
-        description: "Machine to build on (ubuntu-24.04-arm = GitHub's free 4-core fallback)"
-        default: blacksmith-32vcpu-ubuntu-2404-arm
+        description: "Machine to build on; empty = the RUNNER repository variable, else GitHub's free ubuntu-24.04-arm"
+        default: ""
   push:
     branches: [main]
     paths:
@@ -31,7 +31,9 @@ on:
       - ".github/workflows/build.yml"
 
 concurrency:
-  group: build-${{ github.ref }}
+  # one build per branch and machine type; a build on another provider
+  # does not cancel this one
+  group: build-${{ github.ref }}-${{ inputs.runner || vars.RUNNER || 'ubuntu-24.04-arm' }}
   cancel-in-progress: true
 
 permissions:
@@ -39,9 +41,12 @@ permissions:
 
 jobs:
   build:
-    # Blacksmith (32-core ARM, free minutes per organization); pick
-    # ubuntu-24.04-arm in a manual run to use GitHub's own runner instead.
-    runs-on: ${{ inputs.runner || 'blacksmith-32vcpu-ubuntu-2404-arm' }}
+    # Set the RUNNER repository variable (Settings > Secrets and variables >
+    # Actions > Variables) to use a faster provider, e.g.
+    #   ubicloud-standard-30-arm            (Ubicloud, 30-core ARM)
+    #   blacksmith-32vcpu-ubuntu-2404-arm   (Blacksmith, 32-core ARM)
+    # Without it, builds use GitHub's free 4-core ARM runner.
+    runs-on: ${{ inputs.runner || vars.RUNNER || 'ubuntu-24.04-arm' }}
     timeout-minutes: 300
     env:
       DEVICE: xiaomi-umi

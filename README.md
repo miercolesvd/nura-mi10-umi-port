@@ -54,9 +54,9 @@ tools/
 
 ### Online (GitHub Actions)
 
-`.github/workflows/build.yml` builds the kernel and `boot.img` on a 32-core
-ARM Blacksmith runner (GitHub's free arm64 runner as a manual fallback) on
-every push that touches `pmaports/`, or by hand from the
+`.github/workflows/build.yml` builds the kernel and `boot.img` on GitHub's
+free arm64 runner, or on a faster provider named in the `RUNNER` repository
+variable, on every push that touches `pmaports/`, or by hand from the
 Actions tab ("Build boot image" > "Run workflow"). Download `boot-xiaomi-umi`
 from the run's Artifacts, unzip it, then on any machine with `fastboot`:
 
