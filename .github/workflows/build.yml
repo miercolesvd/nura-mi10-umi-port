@@ -3,6 +3,9 @@ name: Build boot image
 # Builds the kernel and a Nura (postmarketOS) boot.img for the Xiaomi Mi 10 on a
 # native arm64 GitHub runner. Download the result from the run's "Artifacts"
 # and start it with:  fastboot boot boot.img   (RAM boot, nothing is flashed)
+#
+# With "full_image" the run also produces xiaomi-umi.img, the whole system,
+# for:  fastboot flash userdata xiaomi-umi.img   (ERASES Android user data)
 
 on:
   workflow_dispatch:
@@ -10,10 +13,14 @@ on:
       ui:
         description: "UI to install (console, phosh, plasma-mobile, ...)"
         default: console
+      full_image:
+        description: "Also build the full system image (xiaomi-umi.img)"
+        type: boolean
+        default: false
       debug_shell:
         description: "Stop in the initramfs debug shell (telnet 172.16.42.1)"
         type: boolean
-        default: true
+        default: false
   push:
     branches: [main]
     paths:
@@ -35,6 +42,10 @@ jobs:
       DEVICE: xiaomi-umi
       UI: ${{ inputs.ui || 'console' }}
       DEBUG_SHELL: ${{ github.event_name == 'push' || inputs.debug_shell }}
+      FULL_IMAGE: ${{ inputs.full_image || false }}
+      # Login and lock-screen password. Set the UMI_PASSWORD repository secret
+      # to use your own; otherwise change it with passwd after the first boot.
+      PASSWORD: ${{ secrets.UMI_PASSWORD || '147147' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -128,8 +139,11 @@ jobs:
           if [ "$DEBUG_SHELL" = "true" ]; then
             ADD="--add postmarketos-mkinitfs-hook-debug-shell"
           fi
-          # --no-image: only the chroot is needed to get boot.img
-          pmbootstrap --details-to-stdout -y install --password 147147 --no-image $ADD
+          if [ "$FULL_IMAGE" != "true" ]; then
+            # only the chroot is needed to get boot.img
+            ADD="$ADD --no-image"
+          fi
+          pmbootstrap --details-to-stdout -y install --password "$PASSWORD" $ADD
 
       - name: Collect boot files
         run: |
@@ -140,10 +154,14 @@ jobs:
           sudo cp "$BOOT/boot.img" out/boot.img
           sudo sh -c "cp $BOOT/vmlinuz* $BOOT/initramfs* out/ 2>/dev/null || true"
           sudo cp "$BOOT/dtbs/qcom/sm8250-xiaomi-umi.dtb" out/ 2>/dev/null || true
+          if [ "$FULL_IMAGE" = "true" ]; then
+            # sparse image (deviceinfo_flash_sparse), flashable with fastboot
+            sudo cp "$WORK/chroot_native/home/pmos/rootfs/$DEVICE.img" "out/$DEVICE.img"
+          fi
           sudo chown -R "$(id -u):$(id -g)" out
           (cd out && sha256sum * | tee SHA256SUMS)
           {
-            echo "### boot.img for $DEVICE (UI: $UI, debug shell: $DEBUG_SHELL)"
+            echo "### $DEVICE (UI: $UI, debug shell: $DEBUG_SHELL, full image: $FULL_IMAGE)"
             echo '```'
             cat out/SHA256SUMS
             ls -la out
@@ -152,7 +170,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: boot-xiaomi-umi
+          name: ${{ env.FULL_IMAGE == 'true' && format('xiaomi-umi-{0}', env.UI) || 'boot-xiaomi-umi' }}
           path: out/
           retention-days: 14
 
