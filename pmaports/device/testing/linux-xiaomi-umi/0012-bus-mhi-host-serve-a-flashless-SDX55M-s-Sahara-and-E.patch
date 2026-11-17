@@ -1,0 +1,556 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 10:52:29 +0000
+Subject: [PATCH 12/12] bus: mhi: host: serve a flashless SDX55M's Sahara and
+ EFS channels
+
+A flashless SDX55M (Xiaomi Mi 10) gets only SBL over BHI. SBL then asks
+for every other image over Sahara on channel 2/3, and in mission mode the
+modem syncs its NV file system to the host over channel 10/11 (Sahara
+memory debug). Give the generic SDX55 entry those channels, and add a
+small MHI client driver that exposes them as /dev/mhi_sahara and
+/dev/mhi_efs for a userspace server.
+
+write() sends its buffer as one transfer of chained TREs, because SBL
+consumes a READ_DATA answer only once it sees the end of the transfer.
+read() returns at most one transfer.
+---
+ drivers/bus/mhi/host/Kconfig           |   9 +
+ drivers/bus/mhi/host/Makefile          |   2 +
+ drivers/bus/mhi/host/mhi_sahara_cdev.c | 442 +++++++++++++++++++++++++
+ drivers/bus/mhi/host/pci_generic.c     |  39 ++-
+ 4 files changed, 491 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/bus/mhi/host/mhi_sahara_cdev.c
+
+diff --git a/drivers/bus/mhi/host/Kconfig b/drivers/bus/mhi/host/Kconfig
+index da5cd0c9f..5e9d6ea31 100644
+--- a/drivers/bus/mhi/host/Kconfig
++++ b/drivers/bus/mhi/host/Kconfig
+@@ -29,3 +29,12 @@ config MHI_BUS_PCI_GENERIC
+ 	  This driver provides MHI PCI controller driver for devices such as
+ 	  Qualcomm SDX55 based PCIe modems.
+ 
++
++config MHI_SAHARA_CDEV
++	tristate "Character devices for MHI Sahara and EFS channels"
++	depends on MHI_BUS
++	help
++	  Expose the SAHARA and EFS channels of a flashless modem, such as
++	  the SDX55M in the Xiaomi Mi 10, as /dev/mhi_sahara and /dev/mhi_efs,
++	  so that userspace can serve the modem's boot images and its NV
++	  file system syncs.
+diff --git a/drivers/bus/mhi/host/Makefile b/drivers/bus/mhi/host/Makefile
+index 859c2f384..05fa3d6d0 100644
+--- a/drivers/bus/mhi/host/Makefile
++++ b/drivers/bus/mhi/host/Makefile
+@@ -4,3 +4,5 @@ mhi-$(CONFIG_MHI_BUS_DEBUG) += debugfs.o
+ 
+ obj-$(CONFIG_MHI_BUS_PCI_GENERIC) += mhi_pci_generic.o
+ mhi_pci_generic-y += pci_generic.o
++
++obj-$(CONFIG_MHI_SAHARA_CDEV) += mhi_sahara_cdev.o
+diff --git a/drivers/bus/mhi/host/mhi_sahara_cdev.c b/drivers/bus/mhi/host/mhi_sahara_cdev.c
+new file mode 100644
+index 000000000..40d09cf67
+--- /dev/null
++++ b/drivers/bus/mhi/host/mhi_sahara_cdev.c
+@@ -0,0 +1,442 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Character devices for the SAHARA and EFS channels of a flashless modem.
++ *
++ * A flashless SDX55M (Xiaomi Mi 10) gets only SBL from the host over BHI.
++ * SBL then asks for every other image over the Sahara protocol on the
++ * SAHARA channel, and in mission mode the modem pushes its NV file system
++ * back to the host over the EFS channel (Sahara memory debug). Both are
++ * served from userspace, which needs /dev/mhi_sahara and /dev/mhi_efs.
++ *
++ * read() returns at most one transfer from the device. write() sends its
++ * whole buffer as one transfer, split into chained TREs: SBL consumes a
++ * READ_DATA answer only once it sees the end of the transfer, so all TREs
++ * of one write must be in the ring at the same time.
++ */
++
++#include <linux/ctype.h>
++#include <linux/kernel.h>
++#include <linux/kref.h>
++#include <linux/mhi.h>
++#include <linux/miscdevice.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/poll.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/uaccess.h>
++#include <linux/wait.h>
++
++#define MHI_CDEV_RX_ALLOC	0x8000
++#define MHI_CDEV_RX_BUFS	16
++#define MHI_CDEV_TRE_MAX	0x8000
++#define MHI_CDEV_WRITE_MAX	(1 << 20)
++
++struct mhi_cdev_buf {
++	struct list_head node;
++	size_t len;
++	size_t off;
++	u8 data[];
++};
++
++#define MHI_CDEV_RX_SIZE	(MHI_CDEV_RX_ALLOC - offsetof(struct mhi_cdev_buf, data))
++
++struct mhi_cdev {
++	struct mhi_device *mdev;
++	struct miscdevice misc;
++	char name[24];
++	struct kref ref;
++	struct mutex lock;		/* open, release, write, remove */
++	struct mutex read_lock;
++	spinlock_t rx_lock;		/* rx_done */
++	struct list_head rx_done;
++	wait_queue_head_t rx_wq;
++	wait_queue_head_t tx_wq;
++	bool open;
++	bool stopped;			/* channel not running */
++	bool gone;			/* MHI device removed */
++};
++
++static void mhi_cdev_free(struct kref *ref)
++{
++	struct mhi_cdev *cdev = container_of(ref, struct mhi_cdev, ref);
++	struct mhi_cdev_buf *buf, *tmp;
++
++	list_for_each_entry_safe(buf, tmp, &cdev->rx_done, node)
++		kfree(buf);
++	kfree(cdev);
++}
++
++static int mhi_cdev_queue_rx(struct mhi_cdev *cdev, struct mhi_cdev_buf *buf)
++{
++	int ret;
++
++	if (!buf) {
++		buf = kmalloc(MHI_CDEV_RX_ALLOC, GFP_KERNEL);
++		if (!buf)
++			return -ENOMEM;
++	}
++	buf->len = 0;
++	buf->off = 0;
++	ret = mhi_queue_buf(cdev->mdev, DMA_FROM_DEVICE, buf->data,
++			    MHI_CDEV_RX_SIZE, MHI_EOT);
++	if (ret)
++		kfree(buf);
++	return ret;
++}
++
++static void mhi_cdev_dl_cb(struct mhi_device *mdev, struct mhi_result *res)
++{
++	struct mhi_cdev *cdev = dev_get_drvdata(&mdev->dev);
++	struct mhi_cdev_buf *buf = container_of(res->buf_addr,
++						struct mhi_cdev_buf, data);
++	unsigned long flags;
++
++	/* -EOVERFLOW: the buffer is full and the transfer goes on in the next */
++	if (res->transaction_status && res->transaction_status != -EOVERFLOW) {
++		kfree(buf);
++		if (res->transaction_status == -ENOTCONN)
++			WRITE_ONCE(cdev->stopped, true);
++		wake_up_interruptible(&cdev->rx_wq);
++		return;
++	}
++	buf->len = res->bytes_xferd;
++	buf->off = 0;
++	spin_lock_irqsave(&cdev->rx_lock, flags);
++	list_add_tail(&buf->node, &cdev->rx_done);
++	spin_unlock_irqrestore(&cdev->rx_lock, flags);
++	wake_up_interruptible(&cdev->rx_wq);
++}
++
++static void mhi_cdev_ul_cb(struct mhi_device *mdev, struct mhi_result *res)
++{
++	struct mhi_cdev *cdev = dev_get_drvdata(&mdev->dev);
++
++	kfree(res->buf_addr);
++	if (res->transaction_status == -ENOTCONN)
++		WRITE_ONCE(cdev->stopped, true);
++	wake_up_interruptible(&cdev->tx_wq);
++}
++
++static int mhi_cdev_open(struct inode *inode, struct file *file)
++{
++	struct mhi_cdev *cdev = container_of(file->private_data,
++					     struct mhi_cdev, misc);
++	int ret, i, n;
++
++	mutex_lock(&cdev->lock);
++	if (cdev->gone) {
++		ret = -ENODEV;
++		goto unlock;
++	}
++	if (cdev->open) {
++		ret = -EBUSY;
++		goto unlock;
++	}
++	ret = mhi_prepare_for_transfer(cdev->mdev);
++	if (ret)
++		goto unlock;
++	WRITE_ONCE(cdev->stopped, false);
++
++	n = min(mhi_get_free_desc_count(cdev->mdev, DMA_FROM_DEVICE),
++		MHI_CDEV_RX_BUFS);
++	for (i = 0; i < n; i++) {
++		ret = mhi_cdev_queue_rx(cdev, NULL);
++		if (ret)
++			break;
++	}
++	if (!i) {
++		mhi_unprepare_from_transfer(cdev->mdev);
++		WRITE_ONCE(cdev->stopped, true);
++		ret = ret ?: -ENOSPC;
++		goto unlock;
++	}
++
++	ret = 0;
++	cdev->open = true;
++	kref_get(&cdev->ref);
++	file->private_data = cdev;
++	stream_open(inode, file);
++unlock:
++	mutex_unlock(&cdev->lock);
++	return ret;
++}
++
++static int mhi_cdev_release(struct inode *inode, struct file *file)
++{
++	struct mhi_cdev *cdev = file->private_data;
++	struct mhi_cdev_buf *buf, *tmp;
++	LIST_HEAD(done);
++
++	mutex_lock(&cdev->lock);
++	/* after remove, the MHI core has already reset the channels */
++	if (!cdev->gone)
++		mhi_unprepare_from_transfer(cdev->mdev);
++	WRITE_ONCE(cdev->stopped, true);
++	cdev->open = false;
++	spin_lock_irq(&cdev->rx_lock);
++	list_splice_init(&cdev->rx_done, &done);
++	spin_unlock_irq(&cdev->rx_lock);
++	mutex_unlock(&cdev->lock);
++
++	list_for_each_entry_safe(buf, tmp, &done, node)
++		kfree(buf);
++	kref_put(&cdev->ref, mhi_cdev_free);
++	return 0;
++}
++
++static bool mhi_cdev_rx_ready(struct mhi_cdev *cdev)
++{
++	return !list_empty(&cdev->rx_done) || READ_ONCE(cdev->stopped);
++}
++
++static ssize_t mhi_cdev_read(struct file *file, char __user *ubuf,
++			     size_t count, loff_t *ppos)
++{
++	struct mhi_cdev *cdev = file->private_data;
++	struct mhi_cdev_buf *buf;
++	ssize_t ret;
++	size_t n;
++
++	if (!count)
++		return 0;
++
++	mutex_lock(&cdev->read_lock);
++	for (;;) {
++		spin_lock_irq(&cdev->rx_lock);
++		buf = list_first_entry_or_null(&cdev->rx_done,
++					       struct mhi_cdev_buf, node);
++		if (buf && buf->off == buf->len) {
++			/* empty transfer: give the buffer back and look again */
++			list_del(&buf->node);
++			spin_unlock_irq(&cdev->rx_lock);
++			if (READ_ONCE(cdev->stopped) || mhi_cdev_queue_rx(cdev, buf))
++				kfree(buf);
++			continue;
++		}
++		spin_unlock_irq(&cdev->rx_lock);
++		if (buf)
++			break;
++		if (READ_ONCE(cdev->stopped)) {
++			ret = READ_ONCE(cdev->gone) ? -ENODEV : -EPIPE;
++			goto out;
++		}
++		if (file->f_flags & O_NONBLOCK) {
++			ret = -EAGAIN;
++			goto out;
++		}
++		ret = wait_event_interruptible(cdev->rx_wq,
++					       mhi_cdev_rx_ready(cdev));
++		if (ret)
++			goto out;
++	}
++
++	n = min(count, buf->len - buf->off);
++	if (copy_to_user(ubuf, buf->data + buf->off, n)) {
++		ret = -EFAULT;
++		goto out;
++	}
++	buf->off += n;
++	if (buf->off == buf->len) {
++		spin_lock_irq(&cdev->rx_lock);
++		list_del(&buf->node);
++		spin_unlock_irq(&cdev->rx_lock);
++		if (READ_ONCE(cdev->stopped) || mhi_cdev_queue_rx(cdev, buf))
++			kfree(buf);
++	}
++	ret = n;
++out:
++	mutex_unlock(&cdev->read_lock);
++	return ret;
++}
++
++static bool mhi_cdev_tx_ready(struct mhi_cdev *cdev, unsigned int pieces)
++{
++	return READ_ONCE(cdev->stopped) ||
++	       mhi_get_free_desc_count(cdev->mdev, DMA_TO_DEVICE) >= pieces;
++}
++
++static ssize_t mhi_cdev_write(struct file *file, const char __user *ubuf,
++			      size_t count, loff_t *ppos)
++{
++	struct mhi_cdev *cdev = file->private_data;
++	unsigned int pieces, i, queued = 0;
++	void **piece;
++	size_t off = 0;
++	ssize_t ret;
++
++	if (!count)
++		return 0;
++	count = min_t(size_t, count, MHI_CDEV_WRITE_MAX);
++	pieces = DIV_ROUND_UP(count, MHI_CDEV_TRE_MAX);
++
++	piece = kcalloc(pieces, sizeof(*piece), GFP_KERNEL);
++	if (!piece)
++		return -ENOMEM;
++	/* copy everything first: a half-queued chain cannot be taken back */
++	for (i = 0; i < pieces; i++) {
++		size_t len = min_t(size_t, count - off, MHI_CDEV_TRE_MAX);
++
++		piece[i] = kmalloc(len, GFP_KERNEL);
++		if (!piece[i]) {
++			ret = -ENOMEM;
++			goto free;
++		}
++		if (copy_from_user(piece[i], ubuf + off, len)) {
++			ret = -EFAULT;
++			goto free;
++		}
++		off += len;
++	}
++
++	mutex_lock(&cdev->lock);
++	if (READ_ONCE(cdev->stopped)) {
++		ret = READ_ONCE(cdev->gone) ? -ENODEV : -EPIPE;
++		goto unlock;
++	}
++	if (!mhi_cdev_tx_ready(cdev, pieces)) {
++		if (file->f_flags & O_NONBLOCK) {
++			ret = -EAGAIN;
++			goto unlock;
++		}
++		ret = wait_event_interruptible(cdev->tx_wq,
++					       mhi_cdev_tx_ready(cdev, pieces));
++		if (ret)
++			goto unlock;
++		if (READ_ONCE(cdev->stopped)) {
++			ret = READ_ONCE(cdev->gone) ? -ENODEV : -EPIPE;
++			goto unlock;
++		}
++	}
++
++	for (off = 0, i = 0; i < pieces; i++) {
++		size_t len = min_t(size_t, count - off, MHI_CDEV_TRE_MAX);
++
++		ret = mhi_queue_buf(cdev->mdev, DMA_TO_DEVICE, piece[i], len,
++				    i == pieces - 1 ? MHI_EOT : MHI_CHAIN);
++		if (ret) {
++			dev_err(&cdev->mdev->dev, "queueing TRE %u/%u failed: %zd\n",
++				i + 1, pieces, ret);
++			break;
++		}
++		/* the UL callback frees it from now on */
++		piece[i] = NULL;
++		queued++;
++		off += len;
++	}
++	ret = queued == pieces ? count : -EIO;
++unlock:
++	mutex_unlock(&cdev->lock);
++free:
++	for (i = 0; i < pieces; i++)
++		kfree(piece[i]);
++	kfree(piece);
++	return ret;
++}
++
++static __poll_t mhi_cdev_poll(struct file *file, poll_table *wait)
++{
++	struct mhi_cdev *cdev = file->private_data;
++	__poll_t mask = 0;
++
++	poll_wait(file, &cdev->rx_wq, wait);
++	poll_wait(file, &cdev->tx_wq, wait);
++	if (!list_empty(&cdev->rx_done))
++		mask |= EPOLLIN | EPOLLRDNORM;
++	if (READ_ONCE(cdev->stopped))
++		return mask | EPOLLHUP | EPOLLERR;
++	if (!mhi_queue_is_full(cdev->mdev, DMA_TO_DEVICE))
++		mask |= EPOLLOUT | EPOLLWRNORM;
++	return mask;
++}
++
++static const struct file_operations mhi_cdev_fops = {
++	.owner = THIS_MODULE,
++	.open = mhi_cdev_open,
++	.release = mhi_cdev_release,
++	.read = mhi_cdev_read,
++	.write = mhi_cdev_write,
++	.poll = mhi_cdev_poll,
++};
++
++static int mhi_cdev_probe(struct mhi_device *mdev,
++			  const struct mhi_device_id *id)
++{
++	struct mhi_cdev *cdev;
++	char *p;
++	int ret;
++
++	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
++	if (!cdev)
++		return -ENOMEM;
++
++	kref_init(&cdev->ref);
++	mutex_init(&cdev->lock);
++	mutex_init(&cdev->read_lock);
++	spin_lock_init(&cdev->rx_lock);
++	INIT_LIST_HEAD(&cdev->rx_done);
++	init_waitqueue_head(&cdev->rx_wq);
++	init_waitqueue_head(&cdev->tx_wq);
++	cdev->mdev = mdev;
++	cdev->stopped = true;
++	snprintf(cdev->name, sizeof(cdev->name), "mhi_%s", id->chan);
++	for (p = cdev->name; *p; p++)
++		*p = tolower(*p);
++
++	cdev->misc.minor = MISC_DYNAMIC_MINOR;
++	cdev->misc.name = cdev->name;
++	cdev->misc.fops = &mhi_cdev_fops;
++	cdev->misc.mode = 0600;
++	dev_set_drvdata(&mdev->dev, cdev);
++
++	ret = misc_register(&cdev->misc);
++	if (ret) {
++		dev_err(&mdev->dev, "cannot register /dev/%s: %d\n", cdev->name, ret);
++		kfree(cdev);
++		return ret;
++	}
++	dev_info(&mdev->dev, "%s channel: /dev/%s\n", id->chan, cdev->name);
++	return 0;
++}
++
++static void mhi_cdev_remove(struct mhi_device *mdev)
++{
++	struct mhi_cdev *cdev = dev_get_drvdata(&mdev->dev);
++
++	WRITE_ONCE(cdev->gone, true);
++	WRITE_ONCE(cdev->stopped, true);
++	wake_up_all(&cdev->rx_wq);
++	wake_up_all(&cdev->tx_wq);
++	misc_deregister(&cdev->misc);
++
++	/* let readers and writers leave before the MHI device goes away */
++	mutex_lock(&cdev->lock);
++	mutex_lock(&cdev->read_lock);
++	mutex_unlock(&cdev->read_lock);
++	mutex_unlock(&cdev->lock);
++
++	kref_put(&cdev->ref, mhi_cdev_free);
++}
++
++static const struct mhi_device_id mhi_cdev_ids[] = {
++	{ .chan = "SAHARA" },
++	{ .chan = "EFS" },
++	{}
++};
++MODULE_DEVICE_TABLE(mhi, mhi_cdev_ids);
++
++static struct mhi_driver mhi_cdev_driver = {
++	.id_table = mhi_cdev_ids,
++	.probe = mhi_cdev_probe,
++	.remove = mhi_cdev_remove,
++	.ul_xfer_cb = mhi_cdev_ul_cb,
++	.dl_xfer_cb = mhi_cdev_dl_cb,
++	.driver = {
++		.name = "mhi_sahara_cdev",
++	},
++};
++module_mhi_driver(mhi_cdev_driver);
++
++MODULE_DESCRIPTION("Character devices for MHI Sahara and EFS channels");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/bus/mhi/host/pci_generic.c b/drivers/bus/mhi/host/pci_generic.c
+index 833d0c940..2a44716e0 100644
+--- a/drivers/bus/mhi/host/pci_generic.c
++++ b/drivers/bus/mhi/host/pci_generic.c
+@@ -275,6 +275,43 @@ static struct mhi_event_config modem_qcom_v1_mhi_events[] = {
+ 	MHI_EVENT_CONFIG_HW_DATA(5, 2048, 101)
+ };
+ 
++/*
++ * Flashless SDX55M as fitted to phones (Xiaomi Mi 10): BHI loads only SBL,
++ * which then asks the host for every other image over Sahara on SAHARA, and
++ * in mission mode the modem syncs its NV file system back to the host over
++ * EFS (Sahara memory debug). The SAHARA uplink ring holds one 1 MiB chained
++ * transfer: SBL consumes a READ_DATA answer only once it sees its end.
++ */
++static const struct mhi_channel_config modem_qcom_sdx55_mhi_channels[] = {
++	MHI_CHANNEL_CONFIG_UL_SBL(2, "SAHARA", 64, 0),
++	MHI_CHANNEL_CONFIG_DL_SBL(3, "SAHARA", 32, 0),
++	MHI_CHANNEL_CONFIG_UL(4, "DIAG", 16, 1),
++	MHI_CHANNEL_CONFIG_DL(5, "DIAG", 16, 1),
++	MHI_CHANNEL_CONFIG_UL(10, "EFS", 64, 0),
++	MHI_CHANNEL_CONFIG_DL(11, "EFS", 32, 0),
++	MHI_CHANNEL_CONFIG_UL(12, "MBIM", 4, 0),
++	MHI_CHANNEL_CONFIG_DL(13, "MBIM", 4, 0),
++	MHI_CHANNEL_CONFIG_UL(14, "QMI", 4, 0),
++	MHI_CHANNEL_CONFIG_DL(15, "QMI", 4, 0),
++	MHI_CHANNEL_CONFIG_UL(20, "IPCR", 8, 0),
++	MHI_CHANNEL_CONFIG_DL_AUTOQUEUE(21, "IPCR", 8, 0),
++	MHI_CHANNEL_CONFIG_UL_FP(34, "FIREHOSE", 32, 0),
++	MHI_CHANNEL_CONFIG_DL_FP(35, "FIREHOSE", 32, 0),
++	MHI_CHANNEL_CONFIG_UL(46, "IP_SW0", 64, 2),
++	MHI_CHANNEL_CONFIG_DL(47, "IP_SW0", 64, 3),
++	MHI_CHANNEL_CONFIG_HW_UL(100, "IP_HW0", 128, 4),
++	MHI_CHANNEL_CONFIG_HW_DL(101, "IP_HW0", 128, 5),
++};
++
++static const struct mhi_controller_config modem_qcom_sdx55_mhiv_config = {
++	.max_channels = 128,
++	.timeout_ms = 8000,
++	.num_channels = ARRAY_SIZE(modem_qcom_sdx55_mhi_channels),
++	.ch_cfg = modem_qcom_sdx55_mhi_channels,
++	.num_events = ARRAY_SIZE(modem_qcom_v1_mhi_events),
++	.event_cfg = modem_qcom_v1_mhi_events,
++};
++
+ static const struct mhi_controller_config modem_qcom_v2_mhiv_config = {
+ 	.max_channels = 128,
+ 	.timeout_ms = 8000,
+@@ -321,7 +358,7 @@ static const struct mhi_pci_dev_info mhi_qcom_sdx55_info = {
+ 	.fw = "qcom/sdx55m/sbl1.mbn",
+ 	.edl = "qcom/sdx55m/edl.mbn",
+ 	.edl_trigger = true,
+-	.config = &modem_qcom_v1_mhiv_config,
++	.config = &modem_qcom_sdx55_mhiv_config,
+ 	.bar_num = MHI_PCI_DEFAULT_BAR_NUM,
+ 	.dma_data_width = 32,
+ 	.mru_default = 32768,

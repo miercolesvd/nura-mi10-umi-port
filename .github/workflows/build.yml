@@ -158,7 +158,7 @@ jobs:
             fi
           fi
 
-          pmbootstrap --details-to-stdout -y build --arch aarch64 linux-xiaomi-umi device-xiaomi-umi
+          pmbootstrap --details-to-stdout -y build --arch aarch64 linux-xiaomi-umi device-xiaomi-umi umi-modem
           pmbootstrap -q chroot --user -- ccache -s || true
 
           # keep the kernel package and its signing key for the next run
@@ -198,7 +198,8 @@ jobs:
           #   sudo apk add --allow-untrusted ./packages/*.apk
           mkdir out/packages
           sudo find "$WORK/packages" -name '*.apk' \( -name 'linux-xiaomi-umi-*' \
-            -o -name 'device-xiaomi-umi-*' -o -name 'firmware-xiaomi-umi*' \) \
+            -o -name 'device-xiaomi-umi-*' -o -name 'firmware-xiaomi-umi*' \
+            -o -name 'umi-modem-*' \) \
             -exec cp {} out/packages/ \;
           sudo chown -R "$(id -u):$(id -g)" out
           (cd out && find . -type f ! -name SHA256SUMS | sort | xargs sha256sum | tee SHA256SUMS)

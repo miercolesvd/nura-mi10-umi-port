@@ -1,0 +1,13 @@
+[Unit]
+Description=Xiaomi Mi 10 SDX55 modem boot (Sahara image server, EFS syncs kept in RAM)
+After=msm-firmware-loader.service systemd-udevd.service
+Wants=msm-firmware-loader.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/umi-modem/umi-modem-start
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

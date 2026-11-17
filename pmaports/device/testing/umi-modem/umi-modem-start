@@ -1,0 +1,108 @@
+#!/bin/sh
+# Boot the Xiaomi Mi 10's SDX55M modem on mainline. The MHI PCI driver loads
+# SBL over BHI; mi10-mdm serves every other image over Sahara and keeps the
+# modem's EFS syncs in RAM.
+#
+# Safety: firmware comes from the modem partition that msm-firmware-loader
+# mounts read-only; the modem's NV partitions (mdm1m9kefs1..3: IMEI, RF
+# calibration) are only ever opened read-only by mi10-mdm. Nothing here
+# writes to the phone's storage.
+
+FW_MNT=/run/msm-firmware-loader/mnt/modem
+SDX=$FW_MNT/image/sdx55m
+RUN=/run/umi-modem
+MAP=$RUN/images.map
+EFS_DIR=$RUN/efs
+
+# Sahara image id -> file in image/sdx55m/ (ids as the stock modem asks)
+IMAGES="6:apps.mbn 8:qdsp6sw.mbn 21:sbl1.mbn 23:aop.mbn 25:tz.mbn 29:acdb.mbn
+	33:hyp.mbn 34:mdmddr.mbn 36:multi_image_qti.mbn 37:multi_image.mbn
+	38:xbl_cfg.elf 40:apdp.mbn 41:devcfg.mbn 42:sec.elf"
+# The modem's NV: the phone's own partitions, opened read-only. The
+# efs*.bin files in sdx55m/ are empty placeholders.
+NV="16:mdm1m9kefs1 17:mdm1m9kefs2 20:mdm1m9kefs3"
+
+log() {
+	echo "umi-modem: $*" >&2
+	echo "umi-modem: $*" > /dev/kmsg 2>/dev/null
+}
+
+part_dev() {
+	for u in /sys/class/block/*/uevent; do
+		if grep -qx "PARTNAME=$1" "$u"; then
+			echo "/dev/$(sed -n 's/^DEVNAME=//p' "$u")"
+			return 0
+		fi
+	done
+	return 1
+}
+
+find_fw() {
+	ls "$SDX" | grep -ixF "$1" | head -n1
+}
+
+if ! grep -qx 0x0306 /sys/bus/pci/devices/*/device 2>/dev/null; then
+	log "the modem (17cb:0306) is not on PCIe"
+	exit 1
+fi
+
+# msm-firmware-loader mounts the modem partition early; give it time anyway
+i=0
+while [ ! -d "$SDX" ] && [ $i -lt 30 ]; do
+	sleep 1
+	i=$((i + 1))
+done
+if [ ! -d "$SDX" ]; then
+	log "no image/sdx55m on the modem partition ($SDX)"
+	exit 1
+fi
+
+mkdir -p "$EFS_DIR"
+chmod 700 "$RUN" "$EFS_DIR"
+{
+	for e in $IMAGES; do
+		id=${e%%:*}
+		name=${e#*:}
+		f=$(find_fw "$name")
+		if [ -n "$f" ]; then
+			echo "$id $SDX/$f"
+		else
+			log "$name (image $id) is not in $SDX"
+		fi
+	done
+	for e in $NV; do
+		id=${e%%:*}
+		part=${e#*:}
+		if dev=$(part_dev "$part"); then
+			echo "$id $dev"
+		else
+			log "partition $part not found"
+		fi
+	done
+} > "$MAP"
+
+# The MHI PCI driver asks for SBL as qcom/sdx55m/sbl1.mbn
+fwpath=$(cat /sys/module/firmware_class/parameters/path 2>/dev/null)
+if [ -z "$fwpath" ]; then
+	log "no firmware search path set (is msm-firmware-loader running?)"
+	exit 1
+fi
+mkdir -p "$fwpath/qcom/sdx55m"
+ln -sf "$SDX/$(find_fw sbl1.mbn)" "$fwpath/qcom/sdx55m/sbl1.mbn"
+
+modprobe -a mhi_sahara_cdev qrtr-mhi mhi_net
+if [ -d /sys/module/mhi_pci_generic ]; then
+	# already loaded (service restart): rebind, so the modem boots afresh
+	for d in /sys/bus/pci/drivers/mhi-pci-generic/0*; do
+		[ -e "$d" ] || continue
+		dev=${d##*/}
+		log "restarting the modem: rebinding $dev"
+		echo "$dev" > /sys/bus/pci/drivers/mhi-pci-generic/unbind
+		echo "$dev" > /sys/bus/pci/drivers/mhi-pci-generic/bind
+	done
+else
+	log "loading the MHI PCI driver: SBL over BHI, then Sahara"
+	modprobe mhi_pci_generic || log "cannot load mhi_pci_generic"
+fi
+
+exec /usr/sbin/mi10-mdm -M -m "$MAP" -e "$EFS_DIR"

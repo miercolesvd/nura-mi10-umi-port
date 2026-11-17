@@ -37,31 +37,31 @@ PCIe RC2 (`qcom,pcie@1c10000`, downstream `pci-msm`):
 | `qcom,boot-option = 1` | not enumerated at boot; the link comes up when the modem is powered |
 | IOMMU | SID base 0x1d00 |
 
-## What mainline 6.12 already has
+## Approach on mainline
 
-- `mhi_pci_generic` knows 17cb:0306 as `qcom-sdx55m` and loads
-  `qcom/sdx55m/sbl1.mbn` over BHI by itself (the hotspot's step 1).
-- `qrtr-mhi` on channel 20/21 `IPCR`.
-- `mhi_net` on channels 100/101 `IP_HW0` (rmnet/QMAP data).
-- ModemManager and libqmi can talk QMI over QRTR.
+| Piece | Where | State |
+|---|---|---|
+| PCIe RC2 + PHY, AP2MDM_STATUS high / ERRFATAL low from boot | kernel patch 0011 (pins as on the Sony Xperia 1 II/5 II) | built, untested |
+| SBL over BHI | `mhi_pci_generic` (generic 17cb:0306 entry), `qcom/sdx55m/sbl1.mbn` linked into the firmware path by `umi-modem-start` | built, untested |
+| SAHARA (2/3, SBL) and EFS (10/11, mission mode) channels | kernel patch 0012: SDX55 channel table + `mhi_sahara_cdev` (`/dev/mhi_sahara`, `/dev/mhi_efs`; a write is one chained transfer, as SBL needs) | built, untested |
+| Image server + EFS syncs in RAM | `umi-modem` package: `mi10-mdm -M`, ported from mi-10-hotspot (same Sahara/EFS code, its simulator tests pass) | built, untested |
+| QRTR name service | mainline's in-kernel `ns` accepts node 2 announcing node 3's services, and the router learns the route to node 3 from those announcements: no patch needed | to verify |
+| Carrier configs over QRTR TFTP | `tqftpserv` | to do |
+| Data call | ModemManager over QRTR, or `mi10-qmi` from mi-10-hotspot; data on `mhi_net` (IP_HW0) with rmnet/QMAP | to do |
 
-## What is missing
+`umi-modem.service` is not enabled by default while this is being tested.
+`mhi_pci_generic` is blacklisted so the modem only starts once its Sahara
+server is ready; the service loads it (or rebinds the device on restart).
 
-1. **Power and link bring-up.** Downstream `esoc` drives GPIO 56/57, waits for
-   GPIO 3, then trains the PCIe link. Mainline has no esoc. Options: a small
-   driver or `pci-pwrctrl`-style sequencing on the RC2 node, or a userspace
-   helper that toggles the GPIOs and triggers a PCI rescan.
-2. **Sahara (channel 2/3) and EFS (channel 10/11)** are not in mainline's
-   SDX55 channel table, and nothing exposes them to userspace. Needs a kernel
-   patch (channel table plus a char device, for example via `mhi_wwan_ctrl`).
-3. **QRTR name service relay**: the kernel's in-kernel name service likely has
-   the same "node 2 announces node 3's services" check that the hotspot
-   patches in Linaro's `ns.c`. To verify and patch.
-4. **Userspace**: port `mi10-mdm` (Sahara image server plus EFS sync kept in
-   RAM) from esoc ioctls to the new interfaces; `tqftpserv` for carrier configs;
-   then ModemManager.
-5. **Firmware**: `image/sdx55m/` on the phone's `modem` partition, plus the raw
-   `mdm1m9kefs1/2/3` partitions served read-only. Never write to the modem's NV
-   partitions.
+Open question: if this modem reports subsystem ID 17cb:010c, mainline maps it
+to the Foxconn T99W175 entry, which has no Sahara channel. `lspci -nnv` on the
+phone tells.
 
-Calls also need audio (ADSP), which is not done yet.
+## Safety
+
+Firmware is read from the modem partition mounted read-only by
+msm-firmware-loader. The NV partitions `mdm1m9kefs1..3` are only opened
+read-only; the modem's EFS syncs are kept in `/run/umi-modem/efs` (RAM).
+Never write to `mdm1m9kefs*`, `modemst*`, `fsg` or `persist`.
+
+Calls also need the voice path (q6voice), not done yet.
