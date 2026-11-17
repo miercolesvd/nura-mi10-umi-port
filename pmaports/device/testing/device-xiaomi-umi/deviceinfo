@@ -37,6 +37,9 @@ deviceinfo_flash_offset_second="0x00000000"
 deviceinfo_flash_offset_tags="0x00000100"
 deviceinfo_flash_offset_dtb="0x01f00000"
 deviceinfo_flash_sparse="true"
+# Checked on the phone: non-A/B, one PARTLABEL=boot (sde50, 128 MiB), and the
+# boot.img built on the device boots when written there.
+deviceinfo_flash_kernel_on_update="true"
 
 # Required for devices using UFS as storage (instead of e.g. eMMC)
 deviceinfo_rootfs_image_sector_size="4096"

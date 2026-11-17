@@ -22,6 +22,7 @@ request.
 | Picture on the panel | **works**: the initramfs hook re-sends the panel on-sequence and sets brightness 1500; console + on-screen keyboard visible at boot (17 Nov 2026) |
 | 90 Hz | **works**: panel TE and frame completions measured at 90/s while scrolling (kernel patch 0006, stock 90 Hz on-sequence) |
 | Plasma Mobile on internal storage, Wi-Fi, Bluetooth | **work** (17 Nov 2026) |
+| Booting from the `boot` partition | **works**: normal restarts go straight into Nura; from device package r3 on, kernel updates rewrite `boot` themselves (17 Nov 2026) |
 | Sound: both loudspeakers | **work** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
 | Sound: stereo | top receiver (0x42) = left, bottom loudspeaker (0x40) = right, confirmed on the phone by setting the amps' slot registers by hand; kernel patch 0008 (pkgrel 4) sets it at stream start |
 | Sound: internal microphones | **work** through PulseAudio as a stereo `Mic` input (top mic left, bottom mic right; 17 Nov 2026) |
@@ -94,6 +95,26 @@ the boot image must be compressed.
 Flashing the root filesystem (`pmbootstrap flasher flash_rootfs`) writes to
 `userdata` and **erases all Android user data**. Do that only after the RAM
 boot works, and after a backup.
+
+### Installing to the phone
+
+With a full image (`full_image` in the workflow, artifact `xiaomi-umi-<ui>`):
+
+```sh
+fastboot flash userdata xiaomi-umi.img   # erases Android user data
+fastboot flash boot boot.img
+fastboot boot boot.img                   # not "fastboot reboot", see below
+```
+
+Right after flashing, `fastboot reboot` drops back into fastboot instead of
+starting the new image (bring-up finding), so start it with `fastboot boot`.
+From then on, normal restarts boot Nura from the `boot` partition, and kernel
+updates installed with `apk` write the new boot image there themselves
+(`deviceinfo_flash_kernel_on_update`).
+
+Updating from a CI run without reflashing: copy the `.apk` files from the
+artifact's `packages/` folder to the phone and run
+`sudo apk add --allow-untrusted ./*.apk`.
 
 ## Known gaps and risks
 
