@@ -100,6 +100,13 @@ jobs:
           cp -r pmaports/device/testing/* "$APORTS/device/testing/"
           pmbootstrap config device "$DEVICE"
           pmbootstrap config ui "$UI"
+          case "$UI" in
+            plasma*)
+              # KWin advertises DISPLAY=:0 even without Xwayland installed;
+              # PulseAudio's autostart (start-pulseaudio-x11) then blocks
+              # forever connecting to it and never serves clients.
+              pmbootstrap config extra_packages xwayland ;;
+          esac
 
           if [ "$DEBUG_SHELL" = "true" ]; then
             # stop in the initramfs debug shell instead of looking for a rootfs

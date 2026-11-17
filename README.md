@@ -22,6 +22,8 @@ request.
 | Picture on the panel | **works**: the initramfs hook re-sends the panel on-sequence and sets brightness 1500; console + on-screen keyboard visible at boot (17 Nov 2026) |
 | 90 Hz | **works**: panel TE and frame completions measured at 90/s while scrolling (kernel patch 0006, stock 90 Hz on-sequence) |
 | Plasma Mobile on internal storage, Wi-Fi, Bluetooth | **work** (17 Nov 2026) |
+| Sound: bottom loudspeaker | **works** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
+| Sound: top speaker, stereo, microphones, headset | not working yet |
 
 Target hardware variant: CSOT panel (`j2_mp_42_02_0b`, hwlevel MP,
 `oled_panel_id` 0B) with ST FTS touch. A Samsung-panel unit needs different
@@ -99,17 +101,23 @@ boot works, and after a backup.
   0010 adds `qcom,kona` where it mattered (pd-mapper, cpufreq-dt blocklist).
 
 - First boot log (17 Nov 2026) also shows: duplicate SPMI device registration
-  warnings, Bluetooth firmware `qca/htbtfw20.tlv` not in the initramfs, and
-  PCIe (Wi-Fi), Type-C, cpufreq and SD-card nodes stuck in deferred probe on
+  warnings, and PCIe (Wi-Fi), Type-C, cpufreq and SD-card nodes stuck in deferred probe on
   `dtbo-stubs` suppliers. None of these block the shell.
 
 - The "works" claims of the bring-up (display, touch, GPU, Wi-Fi, charging,
   Plasma Mobile) are theirs and have not been reproduced here.
 - The charger and fuel-gauge drivers are third-party code that controls
   battery charging. Watch temperature and charge current on the first charge.
-- ADSP/CDSP/SLPI/Venus firmware (`qcom/sm8250/umi/*.mbn`) is not packaged; it
-  has to be extracted from the phone's own modem partition. Until then: no
-  audio, sensors or hardware video decode.
+- DSP firmware is not packaged. `msm-firmware-loader` loads the ADSP firmware
+  (audio) from the phone's own modem partition at boot. CDSP, SLPI (sensors)
+  and Venus (video decode) are not set up yet.
+- The stock bootloader applies the stock `dtbo` and replaces the root
+  `compatible` with `qcom,kona-mtp`/`qcom,kona`; drivers that match on the SoC
+  compatible need a `qcom,kona` entry (kernel patch 0010).
+- Plasma Mobile with PulseAudio hangs without `xwayland`: KWin still sets
+  `DISPLAY`, and PulseAudio's X11 autostart waits for it forever (no sound,
+  volume popup every few seconds). The workflow installs `xwayland`; for a local
+  build run `pmbootstrap config extra_packages xwayland` first.
 - Modem/calls: not working yet; see [docs/modem.md](docs/modem.md).
 - Camera, NFC and fingerprint are not assessed.
 - The device tree carries 200+ stub labels so the stock `dtbo` overlays still
@@ -121,7 +129,7 @@ boot works, and after a backup.
 
 1. Full build in pmbootstrap, RAM boot, collect `dmesg`.
 2. Root filesystem on `userdata`, UI, Wi-Fi.
-3. Firmware extraction script and `firmware-xiaomi-umi` subpackages for the DSPs.
-4. Audio (UCM), sensors, Bluetooth.
+3. Sound: stereo with the top speaker, microphones, headset, earpiece for calls.
+4. Sensors (SLPI), video decode (Venus).
 5. Forward-port to the pmaports SM8250 kernel (7.2), drop the stubs and
    `*_ignore_unused`, own `dtbo`, then propose `device-xiaomi-umi` for testing.
