@@ -1,0 +1,300 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pmaports <pmaports@localhost>
+Date: Tue, 17 Nov 2026 12:49:07 +0000
+Subject: [PATCH] regulator: add the Xiaomi Mi 10 SDX55M power-on sequence
+
+The stock esoc driver never boots the Mi 10's SDX55M from the state it
+powered up in: it warm-resets it through the PON block of its PMIC
+(PMX55, SPMI slave 8), waits 150 ms, raises AP2MDM_STATUS and only then
+brings the PCIe link up. Booted from its power-up state instead, the
+modem reaches mission mode but stays offline.
+
+Do the same in a small regulator driver used as RC2's vddpe-3v3 supply,
+which pcie-qcom enables right before link training, and let it own
+AP2MDM_STATUS instead of a GPIO hog. The PMIC node keeps the name and
+layout the stock dtbo uses, so the overlay merges into it.
+---
+ .../arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts |  37 +++-
+ drivers/regulator/Kconfig                     |   8 +
+ drivers/regulator/Makefile                    |   1 +
+ drivers/regulator/umi-sdx55-power.c           | 177 ++++++++++++++++++
+ 4 files changed, 213 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/regulator/umi-sdx55-power.c
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+index c05491a8e..832bcbd7d 100644
+--- a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
++++ b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
+@@ -709,9 +709,11 @@ dout-pins {
+  * and the stock qcom,mdm0 node: MDM2AP errfatal/status on GPIO 1/3, AP2MDM
+  * status/errfatal on GPIO 56/57, PERST# 85, WAKE# 87 (from sm8250.dtsi).
+  *
+- * The stock esoc driver raises AP2MDM_STATUS before it brings the link up
+- * and keeps AP2MDM_ERRFATAL low while the phone is healthy; the hogs do the
+- * same from the start, so the link trains when RC2 probes.
++ * The stock esoc driver warm-resets the modem through its PMIC (PMX55,
++ * SPMI slave 8), waits 150 ms, raises AP2MDM_STATUS and only then brings
++ * the link up; it keeps AP2MDM_ERRFATAL low while the phone is healthy.
++ * sdx55_power does the reset and AP2MDM_STATUS as RC2's vddpe-3v3 supply,
++ * which the PCIe driver enables right before link training.
+  */
+ /*
+  * The modem's MSIs cannot use the DWC controller's built-in MSI receiver:
+@@ -727,7 +729,29 @@ &intc {
+ 	mbi-alias = <0x0 0x17a10000>;
+ };
+ 
++/*
++ * The stock dtbo (applied by the bootloader) adds this PMIC under spmi_bus as
++ * qcom,pmxprairie@8 with two address cells. Same name and layout here, so
++ * the overlay merges into this node instead of adding a second SID 8 device.
++ */
++&spmi_bus {
++	qcom,pmxprairie@8 {
++		compatible = "qcom,spmi-pmic";
++		reg = <0x8 SPMI_USID>;
++		#address-cells = <2>;
++		#size-cells = <0>;
++
++		sdx55_power: modem-power@800 {
++			compatible = "xiaomi,umi-sdx55-power";
++			reg = <0x800 0x100>;
++			ap2mdm-status-gpios = <&tlmm 56 GPIO_ACTIVE_HIGH>;
++			regulator-name = "sdx55-power";
++		};
++	};
++};
++
+ &pcie2 {
++	vddpe-3v3-supply = <&sdx55_power>;
+ 	msi-parent = <&intc>;
+ 	pinctrl-0 = <&pcie2_default_state &mdm2ap_default &ap2mdm_default>;
+ 
+@@ -756,13 +780,6 @@ ap2mdm_default: ap2mdm-default-state {
+ 		bias-disable;
+ 	};
+ 
+-	ap2mdm_status_hog: ap2mdm-status-hog {
+-		gpio-hog;
+-		gpios = <56 GPIO_ACTIVE_HIGH>;
+-		output-high;
+-		line-name = "ap2mdm-status";
+-	};
+-
+ 	ap2mdm_errfatal_hog: ap2mdm-errfatal-hog {
+ 		gpio-hog;
+ 		gpios = <57 GPIO_ACTIVE_HIGH>;
+diff --git a/drivers/regulator/Kconfig b/drivers/regulator/Kconfig
+index 39297f7d8..d4d1eb963 100644
+--- a/drivers/regulator/Kconfig
++++ b/drivers/regulator/Kconfig
+@@ -47,6 +47,14 @@ config REGULATOR_VIRTUAL_CONSUMER
+ 
+ 	  If unsure, say no.
+ 
++config REGULATOR_UMI_SDX55_POWER
++	tristate "Xiaomi Mi 10 SDX55M modem power-on sequence"
++	depends on MFD_SPMI_PMIC && GPIOLIB && OF
++	help
++	  Warm-reset the Xiaomi Mi 10's SDX55M modem through its PMIC and
++	  raise AP2MDM_STATUS before its PCIe link comes up, as the stock
++	  kernel does. Used as the supply of the modem's PCIe controller.
++
+ config REGULATOR_USERSPACE_CONSUMER
+ 	tristate "Userspace regulator consumer support"
+ 	help
+diff --git a/drivers/regulator/Makefile b/drivers/regulator/Makefile
+index 3d5a803dc..7191706cb 100644
+--- a/drivers/regulator/Makefile
++++ b/drivers/regulator/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_REGULATOR_NETLINK_EVENTS) += event.o
+ obj-$(CONFIG_OF) += of_regulator.o
+ obj-$(CONFIG_REGULATOR_FIXED_VOLTAGE) += fixed.o
+ obj-$(CONFIG_REGULATOR_VIRTUAL_CONSUMER) += virtual.o
++obj-$(CONFIG_REGULATOR_UMI_SDX55_POWER) += umi-sdx55-power.o
+ obj-$(CONFIG_REGULATOR_USERSPACE_CONSUMER) += userspace-consumer.o
+ 
+ obj-$(CONFIG_REGULATOR_88PG86X) += 88pg86x.o
+diff --git a/drivers/regulator/umi-sdx55-power.c b/drivers/regulator/umi-sdx55-power.c
+new file mode 100644
+index 000000000..b123002c8
+--- /dev/null
++++ b/drivers/regulator/umi-sdx55-power.c
+@@ -0,0 +1,177 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Power-on sequence for the SDX55M modem of the Xiaomi Mi 10.
++ *
++ * The stock esoc driver never boots the modem from the state it powered up
++ * in. It first warm-resets it through the PON block of the modem's PMIC
++ * (PMX55, SPMI slave 8), waits 150 ms, and only then raises AP2MDM_STATUS;
++ * after that the PCIe link comes up and the modem is loaded over MHI.
++ *
++ * This driver does the same as a regulator, used as the vddpe-3v3 supply
++ * of the modem's PCIe controller (RC2), so it runs right before the
++ * controller brings the link up. Disabling it lowers AP2MDM_STATUS.
++ */
++
++#include <linux/bits.h>
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/driver.h>
++#include <linux/regulator/of_regulator.h>
++
++#define PON_SW_RST_S2_CTL	0x62
++#define PON_SW_RST_S2_CTL2	0x63
++#define PON_SW_RST_GO		0x64
++
++#define PON_RESET_EN		BIT(7)
++#define PON_SW_RST_GO_VAL	0xa5
++#define PON_TYPE_WARM_RESET	0x01
++
++#define UMI_MDM_PON_SETTLE_MS	150
++
++struct umi_mdm {
++	struct device *dev;
++	struct regmap *map;
++	u32 base;
++	struct gpio_desc *status;
++	bool on;
++};
++
++/* qpnp_pon_modem_pwr_off(PON_POWER_OFF_WARM_RESET) of the stock kernel */
++static int umi_mdm_warm_reset(struct umi_mdm *m)
++{
++	int ret;
++
++	ret = regmap_write(m->map, m->base + PON_SW_RST_S2_CTL2, 0);
++	if (ret)
++		return ret;
++	/* at least 10 sleep clock cycles */
++	usleep_range(500, 600);
++
++	ret = regmap_write(m->map, m->base + PON_SW_RST_S2_CTL,
++			   PON_TYPE_WARM_RESET);
++	if (ret)
++		return ret;
++
++	ret = regmap_write(m->map, m->base + PON_SW_RST_S2_CTL2, PON_RESET_EN);
++	if (ret)
++		return ret;
++	usleep_range(500, 600);
++
++	return regmap_write(m->map, m->base + PON_SW_RST_GO, PON_SW_RST_GO_VAL);
++}
++
++static int umi_mdm_enable(struct regulator_dev *rdev)
++{
++	struct umi_mdm *m = rdev_get_drvdata(rdev);
++	int ret;
++
++	gpiod_set_value_cansleep(m->status, 0);
++
++	ret = umi_mdm_warm_reset(m);
++	if (ret) {
++		dev_err(m->dev, "modem PMIC warm reset failed: %d\n", ret);
++		return ret;
++	}
++	msleep(UMI_MDM_PON_SETTLE_MS);
++
++	gpiod_set_value_cansleep(m->status, 1);
++	m->on = true;
++	dev_info(m->dev, "modem warm-reset, AP2MDM_STATUS high\n");
++
++	return 0;
++}
++
++static int umi_mdm_disable(struct regulator_dev *rdev)
++{
++	struct umi_mdm *m = rdev_get_drvdata(rdev);
++
++	gpiod_set_value_cansleep(m->status, 0);
++	m->on = false;
++
++	return 0;
++}
++
++static int umi_mdm_is_enabled(struct regulator_dev *rdev)
++{
++	struct umi_mdm *m = rdev_get_drvdata(rdev);
++
++	return m->on;
++}
++
++static const struct regulator_ops umi_mdm_ops = {
++	.enable = umi_mdm_enable,
++	.disable = umi_mdm_disable,
++	.is_enabled = umi_mdm_is_enabled,
++};
++
++static const struct regulator_desc umi_mdm_desc = {
++	.name = "sdx55-power",
++	.ops = &umi_mdm_ops,
++	.type = REGULATOR_VOLTAGE,
++	.owner = THIS_MODULE,
++};
++
++static int umi_mdm_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct regulator_config cfg = {};
++	struct regulator_dev *rdev;
++	struct umi_mdm *m;
++	int ret;
++
++	m = devm_kzalloc(dev, sizeof(*m), GFP_KERNEL);
++	if (!m)
++		return -ENOMEM;
++	m->dev = dev;
++
++	m->map = dev_get_regmap(dev->parent, NULL);
++	if (!m->map)
++		return dev_err_probe(dev, -ENODEV, "no PMIC regmap\n");
++
++	ret = of_property_read_u32(dev->of_node, "reg", &m->base);
++	if (ret)
++		return dev_err_probe(dev, ret, "no PON base address\n");
++
++	/* low until the modem has been reset, as the stock driver does */
++	m->status = devm_gpiod_get(dev, "ap2mdm-status", GPIOD_OUT_LOW);
++	if (IS_ERR(m->status))
++		return dev_err_probe(dev, PTR_ERR(m->status),
++				     "no AP2MDM_STATUS GPIO\n");
++
++	cfg.dev = dev;
++	cfg.of_node = dev->of_node;
++	cfg.driver_data = m;
++	cfg.init_data = of_get_regulator_init_data(dev, dev->of_node,
++						   &umi_mdm_desc);
++	if (!cfg.init_data)
++		return -ENOMEM;
++
++	rdev = devm_regulator_register(dev, &umi_mdm_desc, &cfg);
++	if (IS_ERR(rdev))
++		return dev_err_probe(dev, PTR_ERR(rdev),
++				     "cannot register the modem supply\n");
++
++	return 0;
++}
++
++static const struct of_device_id umi_mdm_of_match[] = {
++	{ .compatible = "xiaomi,umi-sdx55-power" },
++	{}
++};
++MODULE_DEVICE_TABLE(of, umi_mdm_of_match);
++
++static struct platform_driver umi_mdm_driver = {
++	.probe = umi_mdm_probe,
++	.driver = {
++		.name = "umi-sdx55-power",
++		.of_match_table = umi_mdm_of_match,
++	},
++};
++module_platform_driver(umi_mdm_driver);
++
++MODULE_DESCRIPTION("Xiaomi Mi 10 SDX55M modem power-on sequence");
++MODULE_LICENSE("GPL");

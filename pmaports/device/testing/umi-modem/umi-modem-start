@@ -41,10 +41,12 @@ find_fw() {
 	ls "$SDX" | grep -ixF "$1" | head -n1
 }
 
-if ! grep -qx 0x0306 /sys/bus/pci/devices/*/device 2>/dev/null; then
+pcidev=$(grep -lx 0x0306 /sys/bus/pci/devices/*/device 2>/dev/null | head -n1)
+if [ -z "$pcidev" ]; then
 	log "the modem (17cb:0306) is not on PCIe"
 	exit 1
 fi
+pcidev=${pcidev%/device}
 
 # msm-firmware-loader mounts the modem partition early; give it time anyway
 i=0
@@ -90,16 +92,21 @@ fi
 mkdir -p "$fwpath/qcom/sdx55m"
 ln -sf "$SDX/$(find_fw sbl1.mbn)" "$fwpath/qcom/sdx55m/sbl1.mbn"
 
+# Carrier configs the modem may fetch over QRTR TFTP (tqftpserv looks next
+# to the remoteproc firmware in the firmware path)
+[ -e "$fwpath/modem_pr" ] || ln -s "$SDX/../modem_pr" "$fwpath/modem_pr"
+
 modprobe -a mhi_sahara_cdev qrtr-mhi mhi_net
 if [ -d /sys/module/mhi_pci_generic ]; then
-	# already loaded (service restart): rebind, so the modem boots afresh
-	for d in /sys/bus/pci/drivers/mhi-pci-generic/0*; do
-		[ -e "$d" ] || continue
-		dev=${d##*/}
-		log "restarting the modem: rebinding $dev"
-		echo "$dev" > /sys/bus/pci/drivers/mhi-pci-generic/unbind
-		echo "$dev" > /sys/bus/pci/drivers/mhi-pci-generic/bind
-	done
+	# Rebinding the driver does not restart this modem: unbinding puts it
+	# in D3 and it does not come back. Only a phone restart reboots it
+	# (the kernel warm-resets it through its PMIC before link-up).
+	if ls -d "$pcidev"/mhi*/mhi*_IPCR >/dev/null 2>&1; then
+		log "the modem is already running"
+	else
+		log "the modem is not running; restart the phone to boot it again"
+		exit 1
+	fi
 else
 	log "loading the MHI PCI driver: SBL over BHI, then Sahara"
 	modprobe mhi_pci_generic || log "cannot load mhi_pci_generic"

@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=8
+pkgrel=9
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -55,6 +55,7 @@ source="
 	0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
 	0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
 	0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
+	0014-regulator-add-the-Xiaomi-Mi-10-SDX55M-power-on-seque.patch
 "
 builddir="$srcdir/linux-$pkgver"
 
@@ -91,7 +92,7 @@ package() {
 
 sha512sums="
 9368813d7c2b17d0a893c1becd0d631dac9030a81c0505b463ad4d8c72edbdaeada53c24bc36ada0b84ff0ff78ae363bdf9aeeb8cff6a0d01bc6fc00b2fa275b  linux-6.12.94.tar.xz
-bb650f962d32445855b0a918148825598c1b2cbe926cde48b6b932f710d2949a986724b11ab11855f855b253f6d8ccd1c8e84da42d869083c7c527afa4ad6c3a  config-xiaomi-umi.aarch64
+7ceb2394db11fd2373be87ad7c4934e52b354c90569b9d68e72f5d97c19af601c8e815c2e3231f4973d6ba8fbc589608885d3a25744d1703e6bba091ded098e7  config-xiaomi-umi.aarch64
 243e84f335d965c79b9f8e2a549f0899c6bad06f5b1cc5bf71ce3e3fd53fdd85abc271999bcb3ee6f94fa4e47a7ab32b4649a3009df0379351b176c92d308583  0001-dmaengine-qcom-gpi-add-sm8250-EE-offset-variants.patch
 59da1b0990a55b1f38dc2f10ef793de625712b7e95c8a17239d52d8dafbf7ca0d66ba84b0716da9f14434bd81a9a14b02cfcbdf41930f0e8b632e3e52cf2e5ea  0002-drm-panel-add-Xiaomi-Mi-10-umi-DSC-command-mode-AMOL.patch
 6137d329181eeff0a04a9595ed7fcb9dfc2a072fef0c7ae8e7feb2c177a7a20bb8864c923a75d5f55b66f5a018e27daf31fd9b0827bd50a825175e247071f5b7  0003-Input-touchscreen-add-vendor-derived-ST-FTS-driver-f.patch
@@ -105,4 +106,5 @@ f83a0e6267262017f89b9f41f4122dd0cae562a648450ddaa9356c06af9aa1ce8775f2a4b17c582f
 9053b45999c0ce80ac55d0e2355ce9d3136f7b3331d71a2077056a075a619053f0d5e2b4ae26e03bdf1262491ddace9b445f2b4e0575b910f4a5c9284f00d159  0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
 50a070ab5dd4393f709eb4cb657774755b5b4408d1dac6c6f379228913e6abb429597a54544dfa4596b5a56a97ad9dd7011017b7bf12c06f1e927c96af6d140a  0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
 5f5e6a2802ec5ff8fb4c4f8f0986e39a109e68f032e759d9a5d66d743afb5697cf30e8efc100a12c81ffd87f01d50e38b91540fdc51096903e18ffa1d13403cc  0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
+bf44fda8dbb2effb0e6cb9007aa52270d014b7a2c82a791d6685b6f3ab0596d93372b3d87bf64e3977bd4842527b48c6a93aa2fb407e3a811edcf5775e6aa6dc  0014-regulator-add-the-Xiaomi-Mi-10-SDX55M-power-on-seque.patch
 "

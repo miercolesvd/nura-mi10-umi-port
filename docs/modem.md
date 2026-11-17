@@ -66,7 +66,17 @@ maps it in the modem's IOMMU domain. Patch 0011 now describes that as GICv3
 MBI (`mbi-ranges`, `mbi-alias`) and makes it RC2's `msi-parent`.
 
 With that (17 Nov 2026, kernel r8) the modem boots to mission mode and
-exposes IPCR, IP_HW0, IP_SW0, QMI, MBIM, DIAG and EFS.
+exposes IPCR, IP_HW0, IP_SW0, QMI, MBIM, DIAG and EFS. QMI over QRTR works
+(`qmicli -d qrtr://3`): firmware MPSS.HI.2.5.c1, SIM ready, IMEI from the NV
+partitions, EFS syncs arrive in RAM. But the modem reports operating mode
+`offline`, no radio interfaces, and refuses `online` (DeviceNotReady). It never
+asks for files over TFTP.
+
+Stock (and mi-10-hotspot, which ran on the stock kernel) always warm-resets
+the modem through its PMIC (PMX55, SPMI slave 8, PON at 0x800) before
+booting it, then raises AP2MDM_STATUS. Kernel patch 0014 does the same as
+RC2's vddpe-3v3 supply (`umi-sdx55-power`). Rebinding mhi_pci_generic is not
+a restart: the modem stays in D3; restart the phone instead.
 
 ## Safety
 
