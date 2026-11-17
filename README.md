@@ -10,6 +10,7 @@ with as few changes as possible, then clean it up towards a pmaports merge
 request.
 
 ## Claude Opus 5.5 used for this. I did not write the code myself, however many hours of debugging and testing were needed from my side.
+default pin is **147147**
 
 ## Status
 
