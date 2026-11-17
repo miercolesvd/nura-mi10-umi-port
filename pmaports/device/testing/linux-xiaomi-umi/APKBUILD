@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=0
+pkgrel=1
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -47,6 +47,7 @@ source="
 	0003-Input-touchscreen-add-vendor-derived-ST-FTS-driver-f.patch
 	0004-power-supply-add-Qualcomm-PM8150B-fuel-gauge-SMB5-ch.patch
 	0005-arm64-dts-qcom-add-Xiaomi-Mi-10-umi.patch
+	0006-arm64-dts-qcom-umi-send-the-panel-s-90-Hz-on-sequenc.patch
 "
 builddir="$srcdir/linux-$pkgver"
 
@@ -89,4 +90,5 @@ sha512sums="
 6137d329181eeff0a04a9595ed7fcb9dfc2a072fef0c7ae8e7feb2c177a7a20bb8864c923a75d5f55b66f5a018e27daf31fd9b0827bd50a825175e247071f5b7  0003-Input-touchscreen-add-vendor-derived-ST-FTS-driver-f.patch
 e7cbba31fe733cc3021d8f0dd6a15841b202fea95db2449dd93169c552b47bd5de54b388c8dad2e2214211a3d92726254b6be1de018eec5811d95a4f85d88f00  0004-power-supply-add-Qualcomm-PM8150B-fuel-gauge-SMB5-ch.patch
 0279ce620c3ffccbf50417be69827f21826f7ddc0cc118a7dc8dca5a62d7315e23c808feffd6dbae4f0de6ed0c265741595e55542c95e4ef33729ad50100d7eb  0005-arm64-dts-qcom-add-Xiaomi-Mi-10-umi.patch
+141fdf4f698a82450938c1987fa3c5143758f66ea9845b09e6a77b86365e3c50740c2c626dc59c256c160f91bbc2f1c3944c7196c24651e474fa741f161c0d09  0006-arm64-dts-qcom-umi-send-the-panel-s-90-Hz-on-sequenc.patch
 "
