@@ -103,7 +103,8 @@ boot works, and after a backup.
 - ADSP/CDSP/SLPI/Venus firmware (`qcom/sm8250/umi/*.mbn`) is not packaged; it
   has to be extracted from the phone's own modem partition. Until then: no
   audio, sensors or hardware video decode.
-- Modem/calls, camera, Bluetooth, NFC and fingerprint are not assessed.
+- Modem/calls: not working yet; see [docs/modem.md](docs/modem.md).
+- Camera, NFC and fingerprint are not assessed.
 - The device tree carries 200+ stub labels so the stock `dtbo` overlays still
   resolve, and boots with `clk_ignore_unused`, `pd_ignore_unused` and
   `regulator_ignore_unused`. None of this is acceptable upstream.
