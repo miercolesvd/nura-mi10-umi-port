@@ -26,7 +26,7 @@ request.
 | Sound: both loudspeakers | **work** through PulseAudio (ADSP firmware loaded from the phone's own modem partition, CS35L41 amps on Tertiary MI2S; 17 Nov 2026). Plasma also needs `xwayland`, which the workflow adds |
 | Sound: stereo | top receiver (0x42) = left, bottom loudspeaker (0x40) = right, confirmed on the phone by setting the amps' slot registers by hand; kernel patch 0008 (pkgrel 4) sets it at stream start |
 | Sound: internal microphones | **work** through PulseAudio as a stereo `Mic` input (top mic left, bottom mic right; 17 Nov 2026) |
-| Modem (SDX55M, 4G/5G) | in progress: **boots to mission mode** on mainline (PCIe RC2, GIC MBI for its MSIs, Sahara image server `umi-modem`); network registration and data not done yet, see [docs/modem.md](docs/modem.md) |
+| Modem (SDX55M, 4G/5G) | **registers on LTE** on mainline (PCIe RC2, GIC MBI for its MSIs, PMIC warm reset, Sahara image server and TFTP v3 in `umi-modem`); online is set by hand with `qmicli`, mobile data not done yet, see [docs/modem.md](docs/modem.md) |
 | Sound: wired headsets (no 3.5 mm jack; USB-C analog adapters go through the WCD938x), earpiece-only output for calls | not working yet |
 
 Target hardware variant: CSOT panel (`j2_mp_42_02_0b`, hwlevel MP,

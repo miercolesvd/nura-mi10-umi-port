@@ -100,3 +100,10 @@ went to the version 3 server). The transfer then stalled at the 8th block of
 every 8-block window: mainline's IPCR channel ring has 8 elements, so only 7
 packets fit in flight and qrtr-mhi drops the 8th. Patch 0012 gives the SDX55
 IPCR 64 uplink / 32 downlink elements.
+
+**Registered (17 Nov 2026, kernel r10, umi-modem r3).** The modem fetches
+`server_check.txt`, `ota_firewall/ruleset` (rejected, as on stock),
+`modem_pr/so/549_0_0.mbn`, `mcfg.tmp` and `mcfg_hw/mbn_hw.dig` over TFTP v3,
+reports `shutting-down`, accepts DMS online and registers on LTE with CS and
+PS attached, the same sequence as stock. Next: the data session (WDA data
+format, DPM open port, WDS bind mux + start network, rmnet on mhi_hwip0).
