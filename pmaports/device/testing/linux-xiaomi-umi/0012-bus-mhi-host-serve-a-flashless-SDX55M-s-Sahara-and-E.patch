@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 10:52:29 +0000
-Subject: [PATCH] bus: mhi: host: serve a flashless SDX55M's Sahara and EFS
- channels
+Subject: [PATCH 12/13] bus: mhi: host: serve a flashless SDX55M's Sahara and
+ EFS channels
 
 A flashless SDX55M (Xiaomi Mi 10) gets only SBL over BHI. SBL then asks
 for every other image over Sahara on channel 2/3, and in mission mode the

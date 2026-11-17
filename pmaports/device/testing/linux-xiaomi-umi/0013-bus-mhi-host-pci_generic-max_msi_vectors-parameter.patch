@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 11:37:43 +0000
-Subject: [PATCH] bus: mhi: host: pci_generic: max_msi_vectors parameter
+Subject: [PATCH 13/13] bus: mhi: host: pci_generic: max_msi_vectors parameter
 
 Bring-up aid: limit the MSI vectors a device gets, down to one shared by
 BHI and all event rings, to tell an interrupt delivery problem from a

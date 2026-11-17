@@ -5,7 +5,7 @@
 _flavor="xiaomi-umi"
 pkgname=linux-$_flavor
 pkgver=6.12.94
-pkgrel=7
+pkgrel=8
 pkgdesc="Close-to-mainline LTS kernel for Xiaomi Mi 10"
 arch="aarch64"
 _carch="arm64"
@@ -102,7 +102,7 @@ e7cbba31fe733cc3021d8f0dd6a15841b202fea95db2449dd93169c552b47bd5de54b388c8dad2e2
 7bb369c881dfa831c0ceacd4f9b982de9337d1a8904ae3298b60138fac4793ae4ea0631b8391f8ec083e996fa5d60ac9c2b4e79285bb8a792bacedbb475bd2b7  0008-ASoC-qcom-sm8250-set-up-both-CS35L41-amps-on-Xiaomi-.patch
 48a7c26a69e6a70ee3b2313b032ffc7d55f731c63f36e9c0af098cc3e9ff43987cd5198d2f1faeca0b240c973a69d815ff0b08ed8b11c815bebf85edff7f420e  0009-arm64-dts-qcom-umi-load-ADSP-firmware-through-msm-fi.patch
 f83a0e6267262017f89b9f41f4122dd0cae562a648450ddaa9356c06af9aa1ce8775f2a4b17c582f556580b0678ecc78c06d1511ed62d0428f7b66365afdcc06  0010-soc-qcom-pd-mapper-cpufreq-dt-platdev-match-SM8250-r.patch
-0e5e8f0a38b7dbaf3a5bc0c7d099edb8ddd27915fa46618d2801537bfb017b1cea2afa3da4df9b06ea15fc3122db2f803282d6c12f51abdbfc85597886d7f253  0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
-082cbb436257023b962eb13f35fb43fde2a01542ac7062b6be6fdfc6778d38442a493d5170f450a07e353ded299ed41e0d3c7101ccce4038c3d53316a50ccb60  0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
-5b71980228a948ddddf8c51aa2e9d43e6849cfb7ae31fd9c09a6bffe49ef9f843fd8cf3958563ea2a9e325ea6a094565ab07c4729a88e72b84fae50fd00a5078  0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
+9053b45999c0ce80ac55d0e2355ce9d3136f7b3331d71a2077056a075a619053f0d5e2b4ae26e03bdf1262491ddace9b445f2b4e0575b910f4a5c9284f00d159  0011-arm64-dts-qcom-umi-enable-PCIe-RC2-for-the-SDX55-mod.patch
+50a070ab5dd4393f709eb4cb657774755b5b4408d1dac6c6f379228913e6abb429597a54544dfa4596b5a56a97ad9dd7011017b7bf12c06f1e927c96af6d140a  0012-bus-mhi-host-serve-a-flashless-SDX55M-s-Sahara-and-E.patch
+5f5e6a2802ec5ff8fb4c4f8f0986e39a109e68f032e759d9a5d66d743afb5697cf30e8efc100a12c81ffd87f01d50e38b91540fdc51096903e18ffa1d13403cc  0013-bus-mhi-host-pci_generic-max_msi_vectors-parameter.patch
 "

@@ -58,6 +58,13 @@ First boot (17 Nov 2026): RC2 links at Gen3 x2 and the modem enumerates as
 T99W175, which boots from its own flash (no BHI image, no Sahara), so
 `umi-modem` sets `mhi_pci_generic sdx55_flashless=1` (kernel patch 0012).
 
+Next: SBL loads over BHI, reaches MHI READY and M0, but its MSIs to the DWC
+iMSI-RX target fault in the SMMU (SID 0x1d01) instead of raising interrupts,
+so no event is ever seen. Stock Android points RC2's MSIs at a GIC MSI frame
+(`qcom,pci-msi` at 0x17a10040: SETSPI_NSR of a GICD alias, SPIs 832-863) and
+maps it in the modem's IOMMU domain. Patch 0011 now describes that as GICv3
+MBI (`mbi-ranges`, `mbi-alias`) and makes it RC2's `msi-parent`.
+
 ## Safety
 
 Firmware is read from the modem partition mounted read-only by

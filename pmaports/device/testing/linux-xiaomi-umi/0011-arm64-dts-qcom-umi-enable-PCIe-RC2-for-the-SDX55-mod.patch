@@ -1,22 +1,28 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: pmaports <pmaports@localhost>
 Date: Tue, 17 Nov 2026 10:48:53 +0000
-Subject: [PATCH 11/12] arm64: dts: qcom: umi: enable PCIe RC2 for the SDX55
+Subject: [PATCH 11/13] arm64: dts: qcom: umi: enable PCIe RC2 for the SDX55
  modem
 
 The Mi 10's SDX55M sits on PCIe RC2 with the same pins as the Sony
 Xperia 1 II/5 II. Enable RC2 and its PHY with Sony's supplies, and hold
 AP2MDM_STATUS high and AP2MDM_ERRFATAL low from the start, as the stock
 esoc driver does before it brings the link up.
+
+Once its SBL runs, the modem's MSI writes to the DWC iMSI-RX target reach
+the SMMU and fault instead of raising an interrupt. Stock Android sends
+them to a GIC MSI frame (SETSPI_NSR of the GICD alias at 0x17a10000, SPIs
+832-863); describe that as GICv3 MBI and make it RC2's MSI parent, so the
+doorbell is mapped in the modem's IOMMU domain.
 ---
- .../arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts | 53 +++++++++++++++++++
- 1 file changed, 53 insertions(+)
+ .../arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts | 68 +++++++++++++++++++
+ 1 file changed, 68 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
-index 93795ed88..07a092b5e 100644
+index 93795ed88..c05491a8e 100644
 --- a/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8250-xiaomi-umi.dts
-@@ -702,3 +702,56 @@ dout-pins {
+@@ -702,3 +702,71 @@ dout-pins {
  	};
  };
  
@@ -31,7 +37,22 @@ index 93795ed88..07a092b5e 100644
 + * and keeps AP2MDM_ERRFATAL low while the phone is healthy; the hogs do the
 + * same from the start, so the link trains when RC2 probes.
 + */
++/*
++ * The modem's MSIs cannot use the DWC controller's built-in MSI receiver:
++ * after SBL starts, its MSI writes reach the SMMU and fault (SID 0x1d01,
++ * iova = the iMSI-RX target). Stock Android sends them to a GIC MSI frame
++ * instead (qcom,pci-msi at 0x17a10040: the SETSPI_NSR register of a GICD
++ * alias, SPIs 832-863) and maps that address in the modem's IOMMU domain.
++ * Mainline's GICv3 MBI support does the same, mapping included.
++ */
++&intc {
++	msi-controller;
++	mbi-ranges = <864 32>;	/* GIC INTIDs = SPI 832-863 */
++	mbi-alias = <0x0 0x17a10000>;
++};
++
 +&pcie2 {
++	msi-parent = <&intc>;
 +	pinctrl-0 = <&pcie2_default_state &mdm2ap_default &ap2mdm_default>;
 +
 +	status = "okay";
